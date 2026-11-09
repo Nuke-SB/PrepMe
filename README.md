@@ -18,7 +18,7 @@ Skills that Common Core teaches in a later grade are marked as *stretch*.
 ## Deploy on Vercel
 
 1. In Vercel, choose **Add New → Project** and import `Nuke-SB/PrepMe`. Vercel detects Next.js; keep the default settings.
-2. Under **Environment Variables**, add:
+2. Optional: the app already points at the PrepMe Supabase project by default. To use a different project, add these under **Environment Variables**:
 
    | Name | Value |
    |---|---|

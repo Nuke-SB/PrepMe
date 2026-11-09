@@ -3,9 +3,11 @@ import Script from "next/script";
 // The quiz itself is plain browser JavaScript in public/prepme.js (same code as the prototype).
 // It reads the question bank from Supabase with the public, read-only key.
 export default function Home() {
+  // Defaults point at the PrepMe Supabase project. The publishable key is meant to be public:
+  // the database only allows reading questions. Vercel environment variables override these if set.
   const cfg = {
-    url: process.env.NEXT_PUBLIC_SUPABASE_URL ?? "",
-    key: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? "",
+    url: process.env.NEXT_PUBLIC_SUPABASE_URL || "https://axzgwfnbztznptqqwczo.supabase.co",
+    key: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "sb_publishable_Iod6p96P1WRWWsCP13IRiQ_4AgQh-tT",
   };
   return (
     <>
