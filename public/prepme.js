@@ -52,7 +52,8 @@ function V(vt, p, small){
     case 'pie': return pieV(p);
     case 'line_graph': return lineGraphV(p);
     case 'protractor': return protractorV(p);
-    case 'shape3d': return shape3d(p.shape);
+    case 'shape3d': return shape3d(p.shape, small);
+    case 'emoji_pic': return emojiPic(p, small);
     case 'arrow': return arrow(p.direction);
     case 'flag': return flag(p.facing, small);
     case 'tally': return tally(p);
@@ -196,15 +197,16 @@ function shape2d(s, small){
   const S=small?110:170, st=`fill="#BFD9F7" stroke="${INK}" stroke-width="4" stroke-linejoin="round"`;
   return `<svg viewBox="0 0 ${S} ${S}" width="${S}" height="${S}" role="img" aria-label="Shape">${shapeInner(s,S,st)}</svg>`;
 }
-function shape3d(s){
+function shape3d(s, small){
   const st=`fill="#BFD9F7" stroke="${INK}" stroke-width="3" stroke-linejoin="round"`, dk=`fill="#8DBBEA" stroke="${INK}" stroke-width="3" stroke-linejoin="round"`; let d='';
   if(s==='cube') d=`<polygon points="40,70 120,70 120,150 40,150" ${st}/><polygon points="40,70 70,40 150,40 120,70" ${dk}/><polygon points="120,70 150,40 150,120 120,150" ${dk}/>`;
-  else if(s==='rectangular prism') d=`<polygon points="20,80 140,80 140,150 20,150" ${st}/><polygon points="20,80 50,50 170,50 140,80" ${dk}/><polygon points="140,80 170,50 170,120 140,150" ${dk}/>`;
+  else if(s==='rectangular prism'||s==='cuboid') d=`<polygon points="20,80 140,80 140,150 20,150" ${st}/><polygon points="20,80 50,50 170,50 140,80" ${dk}/><polygon points="140,80 170,50 170,120 140,150" ${dk}/>`;
   else if(s==='sphere') d=`<circle cx="95" cy="95" r="65" ${st}/><ellipse cx="95" cy="95" rx="65" ry="18" fill="none" stroke="${INK}" stroke-width="2" stroke-dasharray="6 5"/>`;
   else if(s==='cylinder') d=`<path d="M45,45 L45,145 A50,16 0 0 0 145,145 L145,45" ${st}/><ellipse cx="95" cy="45" rx="50" ry="16" ${dk}/>`;
   else if(s==='cone') d=`<path d="M95,25 L45,145 A50,16 0 0 0 145,145 Z" ${st}/><ellipse cx="95" cy="145" rx="50" ry="16" fill="none" stroke="${INK}" stroke-width="2" stroke-dasharray="6 5"/>`;
   else if(s==='pyramid') d=`<polygon points="95,25 35,140 120,160" ${st}/><polygon points="95,25 120,160 165,130" ${dk}/>`;
-  return `<svg viewBox="0 0 190 175" width="190" height="175" role="img" aria-label="Solid shape">${d}</svg>`;
+  const W=small?120:190, Hh=small?110:175;
+  return `<svg viewBox="0 0 190 175" width="${W}" height="${Hh}" role="img" aria-label="Solid shape">${d}</svg>`;
 }
 function arrow(dir){const rot={up:0,right:90,down:180,left:270}[dir];
   return `<svg viewBox="0 0 160 160" width="160" height="160" role="img" aria-label="Arrow"><g transform="rotate(${rot} 80 80)"><rect x="66" y="60" width="28" height="80" rx="6" fill="${SKY}"/><polygon points="80,14 130,70 30,70" fill="${SKY}"/></g></svg>`;}
@@ -253,8 +255,10 @@ function symmetryV(p){const S=180,c=S/2,st=`fill="#BFD9F7" stroke="${INK}" strok
     (p.shape==='rectangle'?`<line x1="8" y1="${c-41}" x2="${S-8}" y2="${c+41}"/>`:`<line x1="${c-62}" y1="${c-62}" x2="${c+62}" y2="${c+62}"/>`);
   return `<svg viewBox="0 0 ${S} ${S}" width="${S}" height="${S}" role="img" aria-label="Shape with a dashed line">${shapeInner(p.shape,S,st)}<g stroke="${ACC}" stroke-width="4" stroke-dasharray="10 7">${ln}</g></svg>`;}
 
+function emojiPic(p, small){const S=small?110:170, f=p.flip==='h'?'scale(-1 1)':p.flip==='v'?'scale(1 -1)':'';
+  return `<svg viewBox="0 0 120 120" width="${S}" height="${S}" role="img" aria-label="Picture"><g transform="translate(60 60) rotate(${p.rotate||0}) ${f}"><text x="0" y="0" text-anchor="middle" dominant-baseline="central" font-size="84">${p.e}</text></g></svg>`;}
 function shapeSized(p){const S=150,st=`fill="#BFD9F7" stroke="${INK}" stroke-width="${4/p.scale}" stroke-linejoin="round"`;
-  return `<svg viewBox="0 0 ${S} ${S}" width="${S}" height="${S}" role="img" aria-label="Shape"><g transform="translate(${S/2} ${S/2}) rotate(${p.rotate||0}) scale(${p.scale*0.62}) translate(${-S/2} ${-S/2})">${shapeInner(p.shape,S,st)}</g></svg>`;}
+  return `<svg viewBox="0 0 ${S} ${S}" width="${S}" height="${S}" role="img" aria-label="Shape"><g transform="translate(${S/2} ${S/2}) rotate(${p.rotate||0}) scale(${p.scale*0.62*(p.sx||1)} ${p.scale*0.62*(p.sy||1)}) translate(${-S/2} ${-S/2})">${shapeInner(p.shape,S,st)}</g></svg>`;}
 function itemsV(side,x,y){let o='';const n=side.count,cols=Math.min(n,3);for(let k=0;k<n;k++){const cx=x+((k%cols)-(cols-1)/2)*30,cy=y-Math.floor(k/cols)*28;o+=T(cx,cy,side.emoji,`font-size="${n>1?26:40}"`);}return o;}
 function balanceV(p){const t={left:10,right:-10,level:0}[p.tilt],W=360,c=W/2,py=70,L=130,rad=t*Math.PI/180,lx=c-L*Math.cos(rad),ly=py+L*Math.sin(rad),rx=c+L*Math.cos(rad),ry=py-L*Math.sin(rad);
   let o=`<polygon points="${c},${py} ${c-34},200 ${c+34},200" fill="#C9D3E3" stroke="${INK}" stroke-width="3"/><line x1="${lx}" y1="${ly}" x2="${rx}" y2="${ry}" stroke="${INK}" stroke-width="7" stroke-linecap="round"/><circle cx="${c}" cy="${py}" r="7" fill="${INK}"/>`;
@@ -328,7 +332,7 @@ function showQuestion(){
   if (q.answer_type==='choice_text'){
     input = `<div class="opts ${q.options.length===3?'three':''}" role="group" aria-label="Answer choices">${q.options.map((o,i)=>`<button class="opt" id="opt${i}" aria-pressed="${prev===o}" data-v="${esc(o)}">${esc(o)}</button>`).join('')}</div>`;
   } else if (q.answer_type==='choice_picture'){
-    input = `<div class="opts three" role="group" aria-label="Answer choices">${q.options.map((o,i)=>`<button class="opt" id="opt${i}" aria-pressed="${prev===o.id}" data-v="${o.id}">${V(o.visual_type,o.params,true)}<span class="letter">${o.id}</span></button>`).join('')}</div>`;
+    input = `<div class="opts ${q.options.length===3?'three':''}" role="group" aria-label="Answer choices">${q.options.map((o,i)=>`<button class="opt" id="opt${i}" aria-pressed="${prev===o.id}" data-v="${o.id}">${V(o.visual_type,o.params,true)}<span class="letter">${o.id}</span></button>`).join('')}</div>`;
   } else if (q.answer_type==='multi_number'){
     const f = q.params.fields, order = q.params.layout === 'order';
     if (q.params.layout === 'remainder') input = `<div class="answer-row"><button class="box small active" id="f0" aria-label="quotient"></button><span>R</span><button class="box small" id="f1" aria-label="remainder"></button></div>${pad(false)}`;
@@ -413,7 +417,7 @@ function correctDisplay(q){
 }
 function row({q,a,i,s}){
   const label = s==='ok'?'✅ Correct':s==='wrong'?'❌ Not quite':'⏭️ Skipped', cls = s==='ok'?'ok':s==='wrong'?'no':'sk';
-  const pics = q.answer_type==='choice_picture' ? `<div class="opts three">${q.options.map(o=>`<div class="opt" style="cursor:default;${o.id===q.correct_answer?'border-color:#1E9E62':''}">${V(o.visual_type,o.params,true)}<span class="letter">${o.id}</span></div>`).join('')}</div>` : '';
+  const pics = q.answer_type==='choice_picture' ? `<div class="opts ${q.options.length===3?'three':'four'}">${q.options.map(o=>`<div class="opt" style="cursor:default;${o.id===q.correct_answer?'border-color:#1E9E62':''}">${V(o.visual_type,o.params,true)}<span class="letter">${o.id}</span></div>`).join('')}</div>` : '';
   return `<div class="row ${s==='ok'?'':s==='wrong'?'wrong':'skipped'}">
     <div class="row-head"><span class="mark ${cls}">${i+1}. ${label}</span><span class="meta"><span class="tag">${esc(q.topic)} · ${esc(q.subtopic)}</span>${q.is_stretch?'<span class="tag stretch">Stretch</span>':''}<span class="tag">${esc(q.q_id)}</span></span></div>
     <div class="row-q">${esc(q.question)}</div>${visualOf(q,true)}${pics}
