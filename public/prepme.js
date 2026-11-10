@@ -371,7 +371,7 @@ const visualOf = (q, small) => q.visual_type && q.visual_type !== 'none' && q.vi
 
 // ---------- screens ----------
 function showWelcome(){
-  prog.hidden = true;
+  prog.hidden = true; adminMode = false; app.classList.remove('wide');
   const counts = [1,2,3,4].map(g => medalSubs(g, medal).length);
   app.innerHTML = `<div style="font-size:60px;line-height:1" aria-hidden="true">🧮</div>
     <h1>Hi there! Ready for your math challenge?</h1>
@@ -387,56 +387,76 @@ function showWelcome(){
   app.querySelectorAll('.gbtn[data-g]').forEach(b => b.onclick = () => { grade = +b.dataset.g; showWelcome(); });
   app.querySelectorAll('.mbtn').forEach(b => b.onclick = () => { medal = b.dataset.m; app.querySelectorAll('.mbtn').forEach(x => x.setAttribute('aria-checked', String(x === b))); });
   const kid = document.getElementById('kid'); kid.oninput = () => { kidName = kid.value.trim(); };
-  document.getElementById('start').onclick = () => { kidName = kid.value.trim(); adminLevel = ''; begin(pickTest()); };
+  document.getElementById('start').onclick = () => { kidName = kid.value.trim(); adminMode = false; begin(pickTest()); };
   document.getElementById('toAdmin').onclick = e => { e.preventDefault(); showAdmin(); };
 }
 // ---------- Admin page: same screen, plus optional Category and Subcategory ----------
 let adminMode = false, adminTopic = '', adminSub = '', adminLevel = '';
+function adminPool(){
+  return BANK.filter(q => q.grade === grade && (!adminTopic || q.topic === adminTopic) && (!adminSub || q.skill_id === adminSub));
+}
 function showAdmin(){
-  prog.hidden = true; adminMode = true;
-  const counts = [1,2,3,4].map(g => subsFor(g).size);
+  prog.hidden = true; adminMode = true; app.classList.remove('wide');
   const inGrade = BANK.filter(q => q.grade === grade);
   const topics = [...new Set(inGrade.map(q => q.topic))];
   if (!topics.includes(adminTopic)) { adminTopic = ''; adminSub = ''; }
   const subs = [...new Map(inGrade.filter(q => q.topic === adminTopic).map(q => [q.skill_id, q.subtopic])).entries()];
   if (!subs.some(([id]) => id === adminSub)) adminSub = '';
-  const nSubs = adminTopic ? subs.length : 0;
-  const atLv = q => !adminLevel || q.difficulty === +adminLevel, lvTxt = adminLevel ? ` at level ${adminLevel}` : '';
-  const plan = adminSub ? `All ${inGrade.filter(q => q.skill_id === adminSub && atLv(q)).length} questions${lvTxt} from this subcategory.`
-             : adminTopic ? `Up to 3 questions${lvTxt} from each of the ${nSubs} subcategories in ${esc(adminTopic)}.`
-             : adminLevel ? `One question${lvTxt} from each of the ${counts[grade-1]} subcategories (nearest level if a subcategory has none).`
-             : `The normal Grade ${grade} Silver test: one question from each of the ${counts[grade-1]} subcategories.`;
+  const pool = adminPool(), n = l => pool.filter(q => q.difficulty === l).length;
+  const shown = adminLevel ? n(+adminLevel) : pool.length;
+  const where = adminSub ? 'this subcategory' : adminTopic ? esc(adminTopic) : `all of Grade ${grade}`;
   const sel = 'class="namebox" style="font-size:18px;max-width:520px"';
   app.innerHTML = `<div style="font-size:60px;line-height:1" aria-hidden="true">🛠️</div>
     <h1>Admin page</h1>
-    <div class="field"><label for="kid">Name</label><input id="kid" class="namebox" maxlength="20" autocomplete="off" placeholder="Type a name" value="${esc(kidName)}"></div>
     <div class="field"><span class="label" id="glabel">Grade</span>
-      <div class="grades" role="radiogroup" aria-labelledby="glabel">${[1,2,3,4].map(g=>`<button class="gbtn" role="radio" aria-checked="${g===grade}" data-g="${g}">Grade ${g}<small>${counts[g-1]} questions</small></button>`).join('')}</div></div>
+      <div class="grades" role="radiogroup" aria-labelledby="glabel">${[1,2,3,4].map(g=>`<button class="gbtn" role="radio" aria-checked="${g===grade}" data-g="${g}">Grade ${g}<small>${BANK.filter(q => q.grade === g).length} in the bank</small></button>`).join('')}</div></div>
     <div class="field"><label for="atopic">Category (optional)</label>
       <select id="atopic" ${sel}><option value="">All categories</option>${topics.map(t => `<option value="${esc(t)}" ${t===adminTopic?'selected':''}>${esc(t)}</option>`).join('')}</select></div>
     <div class="field"><label for="asub">Subcategory (optional)</label>
       <select id="asub" ${sel} ${adminTopic?'':'disabled'}><option value="">${adminTopic ? 'All subcategories in this category' : 'Pick a category first'}</option>${subs.map(([id, name]) => `<option value="${id}" ${id===adminSub?'selected':''}>${esc(name)} (${id})</option>`).join('')}</select></div>
     <div class="field"><label for="alevel">Level (optional)</label>
-      <select id="alevel" ${sel}><option value="">All levels</option>${[1,2,3].map(l => `<option value="${l}" ${String(l)===adminLevel?'selected':''}>Level ${l} (${['Bronze','Silver','Gold'][l-1]}) · ${inGrade.filter(q => q.difficulty === l && (!adminSub || q.skill_id === adminSub) && (!adminTopic || q.topic === adminTopic)).length} questions</option>`).join('')}</select></div>
-    <p class="muted">${plan}</p>
-    <div><button class="btn btn-primary" id="start">Start test</button></div>
+      <select id="alevel" ${sel}><option value="">All levels · ${pool.length} questions</option>${[1,2,3].map(l => `<option value="${l}" ${String(l)===adminLevel?'selected':''}>Level ${l} (${['Bronze','Silver','Gold'][l-1]}) · ${n(l)} questions</option>`).join('')}</select></div>
+    <p class="muted">${shown} questions from ${where}${adminLevel ? ` at level ${adminLevel}` : ''}, shown side by side in Level 1, Level 2 and Level 3 columns.</p>
+    <div><button class="btn btn-primary" id="review" ${shown?'':'disabled'}>Review questions</button></div>
     <p style="margin-top:6px"><button class="link" id="toKid">Back to the kid page</button></p>`;
   app.querySelectorAll('.gbtn').forEach(b => b.onclick = () => { grade = +b.dataset.g; showAdmin(); });
-  const kid = document.getElementById('kid'); kid.oninput = () => { kidName = kid.value.trim(); };
   document.getElementById('atopic').onchange = e => { adminTopic = e.target.value; adminSub = ''; showAdmin(); };
   document.getElementById('asub').onchange = e => { adminSub = e.target.value; showAdmin(); };
   document.getElementById('alevel').onchange = e => { adminLevel = e.target.value; showAdmin(); };
-  document.getElementById('toKid').onclick = e => { e.preventDefault(); showWelcome(); };
-  document.getElementById('start').onclick = () => {
-    kidName = kid.value.trim();
-    let qs;
-    if (adminSub) qs = BANK.filter(q => q.skill_id === adminSub && atLv(q));
-    else if (adminTopic) qs = [...subsFor(grade).entries()].filter(([, list]) => list[0].topic === adminTopic).flatMap(([, list]) => shuffle(list.filter(atLv)).slice(0, 3));
-    else if (adminLevel) { const lv = +adminLevel; qs = [...subsFor(grade).values()].map(list => pickAt(list, lv, {1:[1,2,3],2:[2,1,3],3:[3,2,1]}, false)); }
-    else qs = pickTest('silver');
-    if (!qs.length) return;
-    begin(qs);
+  document.getElementById('toKid').onclick = e => { e.preventDefault(); adminMode = false; showWelcome(); };
+  document.getElementById('review').onclick = showReview;
+}
+// ---------- admin review page: every matching question in Level 1 / Level 2 / Level 3 columns ----------
+function showReview(){
+  prog.hidden = true; app.classList.add('wide');
+  const pool = adminPool(), total = pool.length;
+  const levels = adminLevel ? [+adminLevel] : [1,2,3];
+  const pct = (a, b) => b ? Math.round(a / b * 100) + '%' : '0%';
+  const card = q => {
+    let opts = '';
+    if (q.answer_type === 'choice_text') opts = `<ul class="rv-opts">${q.options.map(o => `<li class="${String(o) === String(q.correct_answer) ? 'right' : ''}">${esc(o)}</li>`).join('')}</ul>`;
+    if (q.answer_type === 'choice_picture') opts = `<div class="opts ${q.options.length===3?'three':'four'}">${q.options.map(o=>`<div class="opt" style="cursor:default;${o.id===q.correct_answer?'border-color:#1E9E62':''}">${V(o.visual_type,o.params,true)}<span class="letter">${o.id}</span></div>`).join('')}</div>`;
+    return `<article class="rv-card">
+      <div class="meta"><span class="tag">${esc(q.q_id)}</span><span class="tag">${esc(q.subtopic)}</span>${q.is_stretch?'<span class="tag stretch">Stretch</span>':''}</div>
+      <div class="row-q">${esc(q.question)}</div>${visualOf(q, true)}${opts}
+      <div class="rv-ans"><b>Answer</b> ${esc(correctDisplay(q))}${q.params && q.params.unit ? ' ' + esc(q.params.unit) : ''}</div>
+      ${q.wrong_answer_notes ? `<div class="rv-note"><b>Note</b> ${esc(q.wrong_answer_notes)}</div>` : ''}
+    </article>`;
   };
+  const cols = levels.map(l => {
+    const qs = pool.filter(q => q.difficulty === l), st = qs.filter(q => q.is_stretch).length;
+    return `<section class="rv-col"><header class="rv-head"><h3>Level ${l} · ${['Bronze','Silver','Gold'][l-1]}</h3>
+      <div><b>${qs.length}</b> questions · <b>${pct(qs.length, total)}</b> of all</div>
+      <div class="muted">${st} stretch (${pct(st, qs.length)} of this level)</div></header>
+      ${qs.map(card).join('') || '<p class="muted">No questions at this level.</p>'}</section>`;
+  }).join('');
+  const where = adminSub ? `${esc(pool[0] ? pool[0].subtopic : '')} (${esc(adminSub)})` : adminTopic ? esc(adminTopic) : 'All categories';
+  const allSt = pool.filter(q => q.is_stretch).length;
+  app.innerHTML = `<div class="rv-top"><div><h2>Review · Grade ${grade}</h2><p class="muted">${where} · ${total} questions · Level 1 ${pct(pool.filter(q=>q.difficulty===1).length,total)} · Level 2 ${pct(pool.filter(q=>q.difficulty===2).length,total)} · Level 3 ${pct(pool.filter(q=>q.difficulty===3).length,total)} · Stretch ${pct(allSt,total)}</p></div>
+    <button class="btn btn-soft" id="back">← Back to admin</button></div>
+    <div class="rv-grid" style="grid-template-columns:repeat(${levels.length},minmax(0,1fr))">${cols}</div>`;
+  document.getElementById('back').onclick = showAdmin;
+  window.scrollTo(0,0);
 }
 function renderProgress(){
   prog.hidden = false;
@@ -445,6 +465,7 @@ function renderProgress(){
     <div class="track" role="progressbar" aria-valuemin="0" aria-valuemax="${test.length}" aria-valuenow="${idx+1}"><div class="fill" style="width:${(idx+1)/test.length*100}%"></div></div>`;
 }
 function showQuestion(){
+  app.classList.remove('wide');
   const q = test[idx]; reached = Math.max(reached, idx); renderProgress();
   const prev = answers[idx];
   cur = { at:q.answer_type, value: prev && q.answer_type!=='multi_number' ? prev : '', parts:[], field:0 };
