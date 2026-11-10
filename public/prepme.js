@@ -426,43 +426,52 @@ function showAdmin(){
   document.getElementById('toKid').onclick = e => { e.preventDefault(); adminMode = false; showWelcome(); };
   document.getElementById('review').onclick = showReview;
 }
-// ---------- admin review page: every matching question in Level 1 / Level 2 / Level 3 columns ----------
+// ---------- admin review page: a table, one row per question slot, Level 1 / 2 / 3 side by side ----------
 function showReview(){
   prog.hidden = true; app.classList.add('wide');
-  const pool = adminPool(), total = pool.length;
-  const levels = adminLevel ? [+adminLevel] : [1,2,3];
-  const pct = (a, b) => b ? Math.round(a / b * 100) + '%' : '0%';
+  const inGrade = BANK.filter(q => q.grade === grade);
+  const topics = [...new Set(inGrade.map(q => q.topic))];
+  const subsOf = t => [...new Map(inGrade.filter(q => !t || q.topic === t).map(q => [q.skill_id, q.subtopic])).entries()];
+  if (adminSub && !subsOf(adminTopic).some(([id]) => id === adminSub)) adminSub = '';
+  const pool = inGrade.filter(q => (!adminTopic || q.topic === adminTopic) && (!adminSub || q.skill_id === adminSub));
+  const levels = adminLevel ? [+adminLevel] : [1,2,3], total = pool.length;
+  const pct = (x, y) => y ? Math.round(x / y * 100) + '%' : '0%';
   const card = q => {
     let opts = '';
     if (q.answer_type === 'choice_text') opts = `<ul class="rv-opts">${q.options.map(o => `<li class="${String(o) === String(q.correct_answer) ? 'right' : ''}">${esc(o)}</li>`).join('')}</ul>`;
     if (q.answer_type === 'choice_picture') opts = `<div class="opts ${q.options.length===3?'three':'four'}">${q.options.map(o=>`<div class="opt" style="cursor:default;${o.id===q.correct_answer?'border-color:#1E9E62':''}">${V(o.visual_type,o.params,true)}<span class="letter">${o.id}</span></div>`).join('')}</div>`;
-    return `<article class="rv-card">
-      <div class="meta"><span class="tag">${esc(q.q_id)}</span><span class="tag">${esc(q.subtopic)}</span>${q.is_stretch?'<span class="tag stretch">Stretch</span>':''}</div>
+    return `<div class="rv-card"><div class="meta"><span class="tag">${esc(q.q_id)}</span>${q.is_stretch?'<span class="tag stretch">Stretch</span>':''}</div>
       <div class="row-q">${esc(q.question)}</div>${visualOf(q, true)}${opts}
       <div class="rv-ans"><b>Answer</b> ${esc(correctDisplay(q))}${q.params && q.params.unit ? ' ' + esc(q.params.unit) : ''}</div>
-      ${q.wrong_answer_notes ? `<div class="rv-note"><b>Note</b> ${esc(q.wrong_answer_notes)}</div>` : ''}
-    </article>`;
+      ${q.wrong_answer_notes ? `<div class="rv-note"><b>Note</b> ${esc(q.wrong_answer_notes)}</div>` : ''}</div>`;
   };
-  const cols = levels.map(l => {
-    const qs = pool.filter(q => q.difficulty === l), st = qs.filter(q => q.is_stretch).length;
-    return `<section class="rv-col"><header class="rv-head"><h3>Level ${l} · ${['Bronze','Silver','Gold'][l-1]}</h3>
-      <div><b>${qs.length}</b> questions · <b>${pct(qs.length, total)}</b> of all</div>
-      <div class="muted">${st} stretch (${pct(st, qs.length)} of this level)</div></header>
-      ${qs.map(card).join('') || '<p class="muted">No questions at this level.</p>'}</section>`;
+  // rows: for each subcategory, row k holds its k-th question at each level
+  const bySub = new Map(); pool.forEach(q => { if (!bySub.has(q.skill_id)) bySub.set(q.skill_id, []); bySub.get(q.skill_id).push(q); });
+  let n = 0;
+  const body = [...bySub.values()].map(list => {
+    const at = levels.map(l => list.filter(q => q.difficulty === l)), rows = Math.max(1, ...at.map(x => x.length));
+    return Array.from({length: rows}, (_, k) => `<tr class="${k===0?'first':''}">
+      <td class="rv-n">${++n}</td>
+      ${k===0 ? `<td class="rv-cat" rowspan="${rows}">${esc(list[0].topic)}</td><td class="rv-sub" rowspan="${rows}">${esc(list[0].subtopic)}<div class="muted">${esc(list[0].skill_id)} · ${list.length} q</div></td>` : ''}
+      ${at.map(x => `<td>${x[k] ? card(x[k]) : (k===0 ? '<span class="muted">None at this level</span>' : '')}</td>`).join('')}</tr>`).join('');
   }).join('');
-  const where = adminSub ? `${esc(pool[0] ? pool[0].subtopic : '')} (${esc(adminSub)})` : adminTopic ? esc(adminTopic) : 'All categories';
-  const allSt = pool.filter(q => q.is_stretch).length;
-  app.innerHTML = `<div class="rv-top"><div><h2>Review · Grade ${grade}</h2><p class="muted">${where} · ${total} questions · Level 1 ${pct(pool.filter(q=>q.difficulty===1).length,total)} · Level 2 ${pct(pool.filter(q=>q.difficulty===2).length,total)} · Level 3 ${pct(pool.filter(q=>q.difficulty===3).length,total)} · Stretch ${pct(allSt,total)}</p></div>
-    <button class="btn btn-soft" id="back">← Back to admin</button></div>
-    <div class="rv-grid" style="grid-template-columns:repeat(${levels.length},minmax(0,1fr))">${cols}</div>`;
+  const head = levels.map(l => { const qs = pool.filter(q => q.difficulty === l), st = qs.filter(q => q.is_stretch).length;
+    return `<th class="rv-lv"><div class="rv-lvname">Level ${l} · ${['Bronze','Silver','Gold'][l-1]}</div><div><b>${qs.length}</b> q · <b>${pct(qs.length,total)}</b> of all</div><div class="muted">${st} stretch (${pct(st,qs.length)})</div></th>`; }).join('');
+  const fsel = 'class="rv-filter"';
+  app.innerHTML = `<div class="rv-top"><div><h2>Review · Grade ${grade}</h2><p class="muted">${total} questions · Level 1 ${pct(pool.filter(q=>q.difficulty===1).length,total)} · Level 2 ${pct(pool.filter(q=>q.difficulty===2).length,total)} · Level 3 ${pct(pool.filter(q=>q.difficulty===3).length,total)} · Stretch ${pct(pool.filter(q=>q.is_stretch).length,total)}</p></div>
+    <div class="rv-actions"><label class="muted">Grade <select id="rgrade" ${fsel}>${[1,2,3,4].map(g=>`<option ${g===grade?'selected':''}>${g}</option>`).join('')}</select></label>
+      <label class="muted">Level <select id="rlevel" ${fsel}><option value="">All</option>${[1,2,3].map(l=>`<option value="${l}" ${String(l)===adminLevel?'selected':''}>${l}</option>`).join('')}</select></label>
+      <button class="btn btn-soft" id="back">← Back to admin</button></div></div>
+    <div class="rv-scroll"><table class="rv-table"><thead><tr>
+      <th class="rv-n">Q#</th>
+      <th class="rv-cat">Category<select id="rtopic" ${fsel}><option value="">All</option>${topics.map(t=>`<option value="${esc(t)}" ${t===adminTopic?'selected':''}>${esc(t)}</option>`).join('')}</select></th>
+      <th class="rv-sub">Subcategory<select id="rsub" ${fsel}><option value="">All</option>${subsOf(adminTopic).map(([id,nm])=>`<option value="${id}" ${id===adminSub?'selected':''}>${esc(nm)}</option>`).join('')}</select></th>
+      ${head}</tr></thead><tbody>${body || `<tr><td colspan="${3+levels.length}" class="muted">No questions match these filters.</td></tr>`}</tbody></table></div>`;
   document.getElementById('back').onclick = showAdmin;
-  window.scrollTo(0,0);
-}
-function renderProgress(){
-  prog.hidden = false;
-  const done = answers.filter(a => a !== undefined).length, skipped = answers.filter(a => a === null).length;
-  prog.innerHTML = `<div class="progress-label"><span>Question ${idx+1} of ${test.length}</span><span class="muted">${done} done${skipped?` · ${skipped} skipped`:''}</span></div>
-    <div class="track" role="progressbar" aria-valuemin="0" aria-valuemax="${test.length}" aria-valuenow="${idx+1}"><div class="fill" style="width:${(idx+1)/test.length*100}%"></div></div>`;
+  document.getElementById('rgrade').onchange = e => { grade = +e.target.value; adminTopic = ''; adminSub = ''; showReview(); };
+  document.getElementById('rlevel').onchange = e => { adminLevel = e.target.value; showReview(); };
+  document.getElementById('rtopic').onchange = e => { adminTopic = e.target.value; adminSub = ''; showReview(); };
+  document.getElementById('rsub').onchange = e => { adminSub = e.target.value; if (adminSub) adminTopic = inGrade.find(q => q.skill_id === adminSub).topic; showReview(); };
 }
 function showQuestion(){
   app.classList.remove('wide');
