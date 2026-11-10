@@ -96,7 +96,7 @@ h1{font-size:clamp(32px,6vw,46px)} h2{font-size:28px} p{margin:0}
 .field label,.field .label{font-weight:800;font-size:18px}
 .namebox{font:700 22px var(--font-body);padding:14px 16px;border:3px solid var(--line);border-radius:16px;color:var(--ink);background:var(--card);max-width:420px}
 .namebox:focus-visible{outline:4px solid var(--sky);outline-offset:2px;border-color:var(--sky)}
-.grades{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;max-width:520px}
+.grades{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;max-width:620px}
 .gbtn{font:800 22px var(--font-body);color:var(--ink);background:var(--card);border:3px solid var(--line);border-radius:18px;padding:14px 10px;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:2px}
 .gbtn small{font-size:14px;font-weight:700;color:var(--muted)}
 .gbtn[aria-checked="true"]{border-color:var(--sky);background:var(--sky-soft)}

@@ -15,7 +15,7 @@ export default function Home() {
         <div className="brand">PrepMe</div>
         <div id="progress" className="progress" hidden></div>
         <main id="app" className="card" aria-live="polite"></main>
-        <p className="foot">Grades 1–3 · one question from each subcategory, picked at random from the PrepMe bank</p>
+        <p className="foot">Grades 1–4 · one question from each subcategory, picked at random from the PrepMe bank</p>
       </div>
       <script dangerouslySetInnerHTML={{ __html: `window.PREPME_CFG = ${JSON.stringify(cfg)};` }} />
       <Script src="/prepme.js" strategy="afterInteractive" />

@@ -37,7 +37,7 @@ function V(vt, p, small){
     case 'hundred_chart': return hundred(p);
     case 'ten_frame': return tenFrame(p);
     case 'base_ten': return baseTen(p);
-    case 'column': return `<div class="colsum"><span>${p.a}</span><span>${p.op} ${p.b}</span><span class="ln"></span></div>`;
+    case 'column': if (p.nums) return colNums(p); return `<div class="colsum"><span>${p.a}</span><span>${p.op} ${p.b}</span><span class="ln"></span></div>`;
     case 'fraction_shape': return fraction(p, small);
     case 'bars': return bars(p);
     case 'units': return units(p);
@@ -46,6 +46,11 @@ function V(vt, p, small){
     case 'calendar': return calendarV(p);
     case 'shape': return p.scale ? shapeSized(p) : shape2d(p.shape, small);
     case 'balance': return balanceV(p);
+    case 'long_div': return longDiv(p);
+    case 'polygon': return polyV(p);
+    case 'coord': return coordV(p);
+    case 'cubes': return cubesV(p);
+    case 'stem_leaf': return stemLeaf(p);
     case 'measuring_cup': return cupV(p);
     case 'thermometer': return thermoV(p);
     case 'venn': return vennV(p);
@@ -257,6 +262,39 @@ function symmetryV(p){const S=180,c=S/2,st=`fill="#BFD9F7" stroke="${INK}" strok
 
 function emojiPic(p, small){const S=small?110:170, f=p.flip==='h'?'scale(-1 1)':p.flip==='v'?'scale(1 -1)':'';
   return `<svg viewBox="0 0 120 120" width="${S}" height="${S}" role="img" aria-label="Picture"><g transform="translate(60 60) rotate(${p.rotate||0}) ${f}"><text x="0" y="0" text-anchor="middle" dominant-baseline="central" font-size="84">${p.e}</text></g></svg>`;}
+
+function colNums(p){const f=n=>Number(n).toLocaleString('en-US');const ns=p.nums;
+  return `<div class="colsum">${ns.map((n,i)=>`<span>${i===ns.length-1?p.op+' ':''}${f(n)}</span>`).join('')}<span class="ln"></span></div>`;}
+function longDiv(p){const f=n=>String(n),w=String(f(p.dividend)).length*30+30;
+  return `<svg viewBox="0 0 ${w+90} 110" width="${w+90}" height="110" role="img" aria-label="Long division"><text x="40" y="78" text-anchor="end" font-family="Courier New,monospace" font-weight="700" font-size="48" fill="${INK}">${p.divisor}</text><path d="M52,30 Q66,60 52,92" fill="none" stroke="${INK}" stroke-width="4"/><line x1="52" y1="30" x2="${w+80}" y2="30" stroke="${INK}" stroke-width="4"/><text x="64" y="78" font-family="Courier New,monospace" font-weight="700" font-size="48" fill="${INK}">${f(p.dividend)}</text></svg>`;}
+function polyV(p){const W=380,H=270,a=(p.rotate||0)*Math.PI/180;
+  let pts=p.pts.map(([x,y])=>[x*Math.cos(a)-y*Math.sin(a),x*Math.sin(a)+y*Math.cos(a)]);
+  const xs=pts.map(q=>q[0]),ys=pts.map(q=>q[1]),mnx=Math.min(...xs),mxx=Math.max(...xs),mny=Math.min(...ys),mxy=Math.max(...ys),s=Math.min((W-110)/(mxx-mnx||1),(H-80)/(mxy-mny||1));
+  const ox=(W-(mxx-mnx)*s)/2, oy=(H-(mxy-mny)*s)/2;
+  const P=pts.map(([x,y])=>[ox+(x-mnx)*s,H-oy-(y-mny)*s]);
+  const inside=(x,y)=>{let c=false;for(let i=0,j=P.length-1;i<P.length;j=i++){const [xi,yi]=P[i],[xj,yj]=P[j];if(((yi>y)!==(yj>y))&&(x<(xj-xi)*(y-yi)/(yj-yi)+xi))c=!c;}return c;};
+  let o=`<polygon points="${P.map(q=>q.join(',')).join(' ')}" fill="#BFD9F7" stroke="${INK}" stroke-width="3" stroke-linejoin="round"/>`;
+  (p.labels||[]).forEach((l,k)=>{const [x1,y1]=P[k],[x2,y2]=P[(k+1)%P.length];const mx=(x1+x2)/2,my=(y1+y2)/2,L=Math.hypot(x2-x1,y2-y1)||1;let nx=(y2-y1)/L,ny=-(x2-x1)/L;
+    if(inside(mx+nx*4,my+ny*4)){nx=-nx;ny=-ny;} const d=Math.abs(nx)>0.7?30:16;o+=T(mx+nx*d,my+ny*d+6,esc(l),`font-size="17" fill="${INK}"`);});
+  if(p.right_angle!=null){const k=p.right_angle,[x,y]=P[k],[ax,ay]=P[(k+1)%P.length],[bx,by]=P[(k+P.length-1)%P.length];const u=(qx,qy)=>{const d=Math.hypot(qx-x,qy-y);return [(qx-x)/d*16,(qy-y)/d*16]};const [ux,uy]=u(ax,ay),[vx,vy]=u(bx,by);o+=`<path d="M${x+ux},${y+uy} L${x+ux+vx},${y+uy+vy} L${x+vx},${y+vy}" fill="none" stroke="${INK}" stroke-width="2"/>`;}
+  return `<svg viewBox="0 0 ${W} ${H}" width="${W}" height="${H}" role="img" aria-label="Shape">${o}</svg>`;}
+function coordV(p){const m=p.max,u=30,L=40,B=40+m*u,W=L+m*u+30;let o='';
+  for(let k=0;k<=m;k++){o+=`<line x1="${L+k*u}" y1="40" x2="${L+k*u}" y2="${B}" stroke="${LINE}" stroke-width="1"/><line x1="${L}" y1="${B-k*u}" x2="${L+m*u}" y2="${B-k*u}" stroke="${LINE}" stroke-width="1"/>`;o+=T(L+k*u,B+20,k,`font-size="12" fill="${INK}"`)+T(L-14,B-k*u+4,k,`font-size="12" fill="${INK}"`);}
+  o+=`<line x1="${L}" y1="${B}" x2="${L+m*u+10}" y2="${B}" stroke="${INK}" stroke-width="2.5"/><line x1="${L}" y1="${B}" x2="${L}" y2="30" stroke="${INK}" stroke-width="2.5"/>`+T(L+m*u+20,B+4,'x',`font-size="15" fill="${INK}"`)+T(L,22,'y',`font-size="15" fill="${INK}"`);
+  p.points.forEach(q=>{const x=L+q.x*u,y=B-q.y*u;o+=`<circle cx="${x}" cy="${y}" r="6" fill="${ACC}" stroke="${INK}" stroke-width="1.5"/>`+T(x+11,y-8,q.label,`font-size="16" fill="${INK}"`);});
+  return `<svg viewBox="0 0 ${W} ${B+34}" width="${W}" height="${B+34}" role="img" aria-label="Coordinate grid">${o}</svg>`;}
+function cubesV(p){const s=26,dx=s*0.5,dy=s*0.35;let o='';const W=p.l*s+p.w*dx+20,H=p.h*s+p.w*dy+20;
+  const face=(pts,fill)=>`<polygon points="${pts.map(q=>q.join(',')).join(' ')}" fill="${fill}" stroke="${INK}" stroke-width="1.5"/>`;
+  for(let z=0;z<p.h;z++)for(let y=p.w-1;y>=0;y--)for(let x=0;x<p.l;x++){const ox=10+x*s+y*dx,oy=H-10-z*s-y*dy;
+    if(y===0)o+=face([[ox,oy],[ox+s,oy],[ox+s,oy-s],[ox,oy-s]],'#BFD9F7');
+    if(z===p.h-1)o+=face([[ox,oy-s],[ox+s,oy-s],[ox+s+dx,oy-s-dy],[ox+dx,oy-s-dy]],'#DCEAFB');
+    if(x===p.l-1)o+=face([[ox+s,oy],[ox+s+dx,oy-dy],[ox+s+dx,oy-s-dy],[ox+s,oy-s]],'#8DBBEA');}
+  return `<svg viewBox="0 0 ${W} ${H}" width="${Math.min(360,W*1.6)}" height="${Math.min(300,H*1.6)}" role="img" aria-label="Box of unit cubes">${o}</svg>`;}
+function stemLeaf(p){const rh=38,W=360;let o=T(W/2,22,esc(p.title),`font-size="18" fill="${INK}"`)+T(60,56,'Stem',`font-size="15" fill="#5D6B85"`)+T(200,56,'Leaf',`font-size="15" fill="#5D6B85"`);
+  o+=`<line x1="20" y1="66" x2="${W-20}" y2="66" stroke="${INK}" stroke-width="2"/><line x1="100" y1="40" x2="100" y2="${70+p.rows.length*rh}" stroke="${INK}" stroke-width="2"/>`;
+  p.rows.forEach((r,i)=>{const y=94+i*rh;o+=T(60,y,r.stem,`font-size="22" fill="${INK}"`);r.leaves.forEach((l,k)=>o+=T(126+k*34,y,l,`font-size="22" fill="${INK}"`));});
+  o+=T(W/2,92+p.rows.length*rh,'Key: '+esc(p.key),`font-size="14" fill="#5D6B85"`);
+  return `<svg viewBox="0 0 ${W} ${104+p.rows.length*rh}" width="${W}" height="${104+p.rows.length*rh}" role="img" aria-label="Stem and leaf plot">${o}</svg>`;}
 function shapeSized(p){const S=150,st=`fill="#BFD9F7" stroke="${INK}" stroke-width="${4/p.scale}" stroke-linejoin="round"`;
   return `<svg viewBox="0 0 ${S} ${S}" width="${S}" height="${S}" role="img" aria-label="Shape"><g transform="translate(${S/2} ${S/2}) rotate(${p.rotate||0}) scale(${p.scale*0.62*(p.sx||1)} ${p.scale*0.62*(p.sy||1)}) translate(${-S/2} ${-S/2})">${shapeInner(p.shape,S,st)}</g></svg>`;}
 function itemsV(side,x,y){let o='';const n=side.count,cols=Math.min(n,3);for(let k=0;k<n;k++){const cx=x+((k%cols)-(cols-1)/2)*30,cy=y-Math.floor(k/cols)*28;o+=T(cx,cy,side.emoji,`font-size="${n>1?26:40}"`);}return o;}
@@ -305,12 +343,12 @@ const visualOf = (q, small) => q.visual_type && q.visual_type !== 'none' && q.vi
 // ---------- screens ----------
 function showWelcome(){
   prog.hidden = true;
-  const counts = [1,2,3].map(g => subsFor(g).size);
+  const counts = [1,2,3,4].map(g => subsFor(g).size);
   app.innerHTML = `<div style="font-size:60px;line-height:1" aria-hidden="true">🧮</div>
     <h1>Hi there! Ready for your math challenge?</h1>
     <div class="field"><label for="kid">What's your name?</label><input id="kid" class="namebox" maxlength="20" autocomplete="off" placeholder="Type your name" value="${esc(kidName)}"></div>
     <div class="field"><span class="label" id="glabel">Which grade are you in?</span>
-      <div class="grades" role="radiogroup" aria-labelledby="glabel">${[1,2,3].map(g=>`<button class="gbtn" role="radio" aria-checked="${g===grade}" data-g="${g}">Grade ${g}<small>${counts[g-1]} questions</small></button>`).join('')}</div></div>
+      <div class="grades" role="radiogroup" aria-labelledby="glabel">${[1,2,3,4].map(g=>`<button class="gbtn" role="radio" aria-checked="${g===grade}" data-g="${g}">Grade ${g}<small>${counts[g-1]} questions</small></button>`).join('')}</div></div>
     <p class="muted">One question from each part of the grade's math. Try your best. If you don't know one, tap Skip. You'll see how you did at the end.</p>
     <div><button class="btn btn-primary" id="start">Let's start!</button></div>`;
   app.querySelectorAll('.gbtn').forEach(b => b.onclick = () => { grade = +b.dataset.g; app.querySelectorAll('.gbtn').forEach(x => x.setAttribute('aria-checked', String(x === b))); });
@@ -380,7 +418,7 @@ function wire(q){
     const k=b.dataset.k, multi=cur.at==='multi_number'; let v = multi ? cur.parts[cur.field] : cur.value;
     if (k==='back') v=v.slice(0,-1); else if (k==='clear') v='';
     else if (k===':'){ if(!v.includes(':') && v.length) v+=':'; }
-    else { const max = multi ? 4 : cur.at==='time' ? 5 : 5; if (v.length<max) v+=k; }
+    else { const max = multi ? 5 : cur.at==='time' ? 5 : 7; if (v.length<max) v+=k; }
     if (multi){ cur.parts[cur.field]=v; if (/^\d$/.test(k) && v.length>=String((q.correct_answer.split('|')[cur.field])).length && cur.field<cur.parts.length-1 && cur.parts[cur.field+1]==='') cur.field++; }
     else cur.value=v;
     refresh();
