@@ -132,3 +132,6 @@ h1{font-size:clamp(32px,6vw,46px)} h2{font-size:28px} p{margin:0}
 .rv-opts li{border:2px solid var(--line);border-radius:10px;padding:3px 9px}
 .rv-opts li.right{border-color:#1E9E62;background:#E8F7EF;font-weight:700}
 .rv-note{font-size:13px;color:var(--muted)}
+.tag.lv1{background:#E8F7EF;color:#157347;border-color:#9ED9B8;font-weight:700}
+.tag.lv2{background:#E7F0FD;color:#1F5FBF;border-color:#A9C7F2;font-weight:700}
+.tag.lv3{background:#FFF0E3;color:#B65410;border-color:#F5BE90;font-weight:700}

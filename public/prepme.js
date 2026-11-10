@@ -440,7 +440,7 @@ function showReview(){
     let opts = '';
     if (q.answer_type === 'choice_text') opts = `<ul class="rv-opts">${q.options.map(o => `<li class="${String(o) === String(q.correct_answer) ? 'right' : ''}">${esc(o)}</li>`).join('')}</ul>`;
     if (q.answer_type === 'choice_picture') opts = `<div class="opts ${q.options.length===3?'three':'four'}">${q.options.map(o=>`<div class="opt" style="cursor:default;${o.id===q.correct_answer?'border-color:#1E9E62':''}">${V(o.visual_type,o.params,true)}<span class="letter">${o.id}</span></div>`).join('')}</div>`;
-    return `<div class="rv-card"><div class="meta"><span class="tag">${esc(q.q_id)}</span>${q.is_stretch?'<span class="tag stretch">Stretch</span>':''}</div>
+    return `<div class="rv-card"><div class="meta"><span class="tag">${esc(q.q_id)}</span><span class="tag lv${q.difficulty}">Level ${q.difficulty}</span>${q.is_stretch?'<span class="tag stretch">Stretch</span>':''}</div>
       <div class="row-q">${esc(q.question)}</div>${visualOf(q, true)}${opts}
       <div class="rv-ans"><b>Answer</b> ${esc(correctDisplay(q))}${q.params && q.params.unit ? ' ' + esc(q.params.unit) : ''}</div>
       ${q.wrong_answer_notes ? `<div class="rv-note"><b>Note</b> ${esc(q.wrong_answer_notes)}</div>` : ''}</div>`;
@@ -570,7 +570,7 @@ function row({q,a,i,s}){
   const label = s==='ok'?'✅ Correct':s==='wrong'?'❌ Not quite':'⏭️ Skipped', cls = s==='ok'?'ok':s==='wrong'?'no':'sk';
   const pics = q.answer_type==='choice_picture' ? `<div class="opts ${q.options.length===3?'three':'four'}">${q.options.map(o=>`<div class="opt" style="cursor:default;${o.id===q.correct_answer?'border-color:#1E9E62':''}">${V(o.visual_type,o.params,true)}<span class="letter">${o.id}</span></div>`).join('')}</div>` : '';
   return `<div class="row ${s==='ok'?'':s==='wrong'?'wrong':'skipped'}">
-    <div class="row-head"><span class="mark ${cls}">${i+1}. ${label}</span><span class="meta"><span class="tag">${esc(q.topic)} · ${esc(q.subtopic)}</span>${q.is_stretch?'<span class="tag stretch">Stretch</span>':''}<span class="tag">Level ${q.difficulty}</span><span class="tag">${esc(q.q_id)}</span></span></div>
+    <div class="row-head"><span class="mark ${cls}">${i+1}. ${label}</span><span class="meta"><span class="tag">${esc(q.topic)} · ${esc(q.subtopic)}</span>${q.is_stretch?'<span class="tag stretch">Stretch</span>':''}<span class="tag lv${q.difficulty}">Level ${q.difficulty}</span><span class="tag">${esc(q.q_id)}</span></span></div>
     <div class="row-q">${esc(q.question)}</div>${visualOf(q,true)}${pics}
     <div class="ans"><div class="${cls}"><b>Answer given</b>${esc(s==='skipped'?'Skipped':showAnswer(q,a))}</div><div><b>Correct answer</b>${esc(correctDisplay(q))}</div></div>
     ${s!=='ok' && q.wrong_answer_notes ? `<div class="note"><b>${s==='skipped'?'What this checks':'Common mistakes'}:</b> ${esc(q.wrong_answer_notes)}</div>`:''}
