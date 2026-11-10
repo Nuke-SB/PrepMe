@@ -8,7 +8,36 @@ const T = (x,y,s,o='') => `<text x="${x}" y="${y}" text-anchor="middle" font-fam
 
 // ---------- pick one question per subcategory of the chosen grade, in bank order ----------
 function subsFor(g){ const m = new Map(); BANK.filter(q => q.grade === g).forEach(q => { if (!m.has(q.skill_id)) m.set(q.skill_id, []); m.get(q.skill_id).push(q); }); return m; }
-function pickTest(){ return [...subsFor(grade).values()].map(list => shuffle(list)[0]); }
+// ---------- medals: the kid picks Bronze, Silver or Gold ----------
+// Bronze: no stretch subcategories, about 70% level 1 / 30% level 2.
+// Silver: every subcategory (stretch too), about 70% level 2 / 30% level 1.
+// Gold:   every subcategory (stretch too), about 60% level 3 / 40% level 2 (the hardest questions).
+const MEDALS = {
+  bronze: { name:'Bronze', icon:'🥉', mix:[[1,.7],[2,.3]], stretch:false, order:{1:[1,2,3],2:[2,1,3]}, blurb:'Warm-up' },
+  silver: { name:'Silver', icon:'🥈', mix:[[2,.7],[1,.3]], stretch:true,  order:{1:[1,2,3],2:[2,1,3]}, blurb:'Grade level' },
+  gold:   { name:'Gold',   icon:'🥇', mix:[[3,.6],[2,.4]], stretch:true,  order:{2:[2,3,1],3:[3,2,1]}, blurb:'Challenge' },
+};
+let medal = 'silver';
+const subIsStretch = list => list.filter(q => q.is_stretch).length * 2 > list.length;
+function medalSubs(g, m){ return [...subsFor(g).values()].filter(list => MEDALS[m].stretch || !subIsStretch(list)); }
+function levelPlan(n, mix){ // exact counts per level, spread at random over the subcategories
+  const out = []; let left = n;
+  mix.forEach(([lv, share], k) => { const c = k === mix.length - 1 ? left : Math.round(n * share); for (let i = 0; i < c; i++) out.push(lv); left -= c; });
+  return shuffle(out);
+}
+function pickAt(list, lv, order, noStretch){ // a question at the wanted level, else the nearest level in `order`
+  const pool = noStretch ? list.filter(q => !q.is_stretch) : list;
+  for (const l of (order[lv] || [lv])) { const at = pool.filter(q => q.difficulty === l); if (at.length) return shuffle(at)[0]; }
+  return shuffle(pool.length ? pool : list)[0];
+}
+function pickTest(m = medal){
+  const M = MEDALS[m], subs = medalSubs(grade, m), plan = levelPlan(subs.length, M.mix);
+  return subs.map((list, i) => pickAt(list, plan[i], M.order, !M.stretch));
+}
+// answer options are shown in a new random order every test (ordered scales like certain…impossible stay in order)
+const KEEP_ORDER = [['certain','likely','unlikely','impossible'], ['even','odd'], ['prime','composite'], ['yes','no'], ['true','false'], ['a.m.','p.m.']];
+function prepare(qs){ return qs.map(q => q.answer_type === 'choice_text' && q.options && !KEEP_ORDER.some(k => q.options.every(o => k.includes(String(o)))) ? { ...q, options: shuffle(q.options) } : q); }
+function begin(qs){ test = prepare(qs); idx = 0; reached = 0; exitedAt = null; answers = Array(test.length).fill(undefined); showQuestion(); }
 
 // ---------- answer checking ----------
 function isCorrect(q, g){
@@ -343,23 +372,26 @@ const visualOf = (q, small) => q.visual_type && q.visual_type !== 'none' && q.vi
 // ---------- screens ----------
 function showWelcome(){
   prog.hidden = true;
-  const counts = [1,2,3,4].map(g => subsFor(g).size);
+  const counts = [1,2,3,4].map(g => medalSubs(g, medal).length);
   app.innerHTML = `<div style="font-size:60px;line-height:1" aria-hidden="true">🧮</div>
     <h1>Hi there! Ready for your math challenge?</h1>
     <div class="field"><label for="kid">What's your name?</label><input id="kid" class="namebox" maxlength="20" autocomplete="off" placeholder="Type your name" value="${esc(kidName)}"></div>
     <div class="field"><span class="label" id="glabel">Which grade are you in?</span>
       <div class="grades" role="radiogroup" aria-labelledby="glabel">${[1,2,3,4].map(g=>`<button class="gbtn" role="radio" aria-checked="${g===grade}" data-g="${g}">Grade ${g}<small>${counts[g-1]} questions</small></button>`).join('')}</div></div>
+    <div class="field"><span class="label" id="mlabel">Pick your level</span>
+      <div class="grades medals" role="radiogroup" aria-labelledby="mlabel">${Object.entries(MEDALS).map(([k,M])=>`<button class="gbtn mbtn" role="radio" aria-checked="${k===medal}" data-m="${k}"><span aria-hidden="true" style="font-size:30px;line-height:1">${M.icon}</span>${M.name}<small>${M.blurb} · ${medalSubs(grade,k).length} questions</small></button>`).join('')}</div></div>
     <p class="muted">One question from each part of the grade's math. Try your best. If you don't know one, tap Skip. You'll see how you did at the end.</p>
     <div><button class="btn btn-primary" id="start">Let's start!</button></div>
     <p style="margin-top:6px"><button class="link" id="toAdmin">Admin page</button></p>`;
   adminMode = false;
-  app.querySelectorAll('.gbtn').forEach(b => b.onclick = () => { grade = +b.dataset.g; app.querySelectorAll('.gbtn').forEach(x => x.setAttribute('aria-checked', String(x === b))); });
+  app.querySelectorAll('.gbtn[data-g]').forEach(b => b.onclick = () => { grade = +b.dataset.g; showWelcome(); });
+  app.querySelectorAll('.mbtn').forEach(b => b.onclick = () => { medal = b.dataset.m; app.querySelectorAll('.mbtn').forEach(x => x.setAttribute('aria-checked', String(x === b))); });
   const kid = document.getElementById('kid'); kid.oninput = () => { kidName = kid.value.trim(); };
-  document.getElementById('start').onclick = () => { kidName = kid.value.trim(); test = pickTest(); idx = 0; reached = 0; exitedAt = null; answers = Array(test.length).fill(undefined); showQuestion(); };
+  document.getElementById('start').onclick = () => { kidName = kid.value.trim(); adminLevel = ''; begin(pickTest()); };
   document.getElementById('toAdmin').onclick = e => { e.preventDefault(); showAdmin(); };
 }
 // ---------- Admin page: same screen, plus optional Category and Subcategory ----------
-let adminMode = false, adminTopic = '', adminSub = '';
+let adminMode = false, adminTopic = '', adminSub = '', adminLevel = '';
 function showAdmin(){
   prog.hidden = true; adminMode = true;
   const counts = [1,2,3,4].map(g => subsFor(g).size);
@@ -369,9 +401,11 @@ function showAdmin(){
   const subs = [...new Map(inGrade.filter(q => q.topic === adminTopic).map(q => [q.skill_id, q.subtopic])).entries()];
   if (!subs.some(([id]) => id === adminSub)) adminSub = '';
   const nSubs = adminTopic ? subs.length : 0;
-  const plan = adminSub ? `All ${inGrade.filter(q => q.skill_id === adminSub).length} questions from this subcategory.`
-             : adminTopic ? `3 questions from each of the ${nSubs} subcategories in ${esc(adminTopic)} (${nSubs * 3} questions).`
-             : `The normal Grade ${grade} test: one question from each of the ${counts[grade-1]} subcategories.`;
+  const atLv = q => !adminLevel || q.difficulty === +adminLevel, lvTxt = adminLevel ? ` at level ${adminLevel}` : '';
+  const plan = adminSub ? `All ${inGrade.filter(q => q.skill_id === adminSub && atLv(q)).length} questions${lvTxt} from this subcategory.`
+             : adminTopic ? `Up to 3 questions${lvTxt} from each of the ${nSubs} subcategories in ${esc(adminTopic)}.`
+             : adminLevel ? `One question${lvTxt} from each of the ${counts[grade-1]} subcategories (nearest level if a subcategory has none).`
+             : `The normal Grade ${grade} Silver test: one question from each of the ${counts[grade-1]} subcategories.`;
   const sel = 'class="namebox" style="font-size:18px;max-width:520px"';
   app.innerHTML = `<div style="font-size:60px;line-height:1" aria-hidden="true">🛠️</div>
     <h1>Admin page</h1>
@@ -382,6 +416,8 @@ function showAdmin(){
       <select id="atopic" ${sel}><option value="">All categories</option>${topics.map(t => `<option value="${esc(t)}" ${t===adminTopic?'selected':''}>${esc(t)}</option>`).join('')}</select></div>
     <div class="field"><label for="asub">Subcategory (optional)</label>
       <select id="asub" ${sel} ${adminTopic?'':'disabled'}><option value="">${adminTopic ? 'All subcategories in this category' : 'Pick a category first'}</option>${subs.map(([id, name]) => `<option value="${id}" ${id===adminSub?'selected':''}>${esc(name)} (${id})</option>`).join('')}</select></div>
+    <div class="field"><label for="alevel">Level (optional)</label>
+      <select id="alevel" ${sel}><option value="">All levels</option>${[1,2,3].map(l => `<option value="${l}" ${String(l)===adminLevel?'selected':''}>Level ${l} (${['Bronze','Silver','Gold'][l-1]}) · ${inGrade.filter(q => q.difficulty === l && (!adminSub || q.skill_id === adminSub) && (!adminTopic || q.topic === adminTopic)).length} questions</option>`).join('')}</select></div>
     <p class="muted">${plan}</p>
     <div><button class="btn btn-primary" id="start">Start test</button></div>
     <p style="margin-top:6px"><button class="link" id="toKid">Back to the kid page</button></p>`;
@@ -389,13 +425,17 @@ function showAdmin(){
   const kid = document.getElementById('kid'); kid.oninput = () => { kidName = kid.value.trim(); };
   document.getElementById('atopic').onchange = e => { adminTopic = e.target.value; adminSub = ''; showAdmin(); };
   document.getElementById('asub').onchange = e => { adminSub = e.target.value; showAdmin(); };
+  document.getElementById('alevel').onchange = e => { adminLevel = e.target.value; showAdmin(); };
   document.getElementById('toKid').onclick = e => { e.preventDefault(); showWelcome(); };
   document.getElementById('start').onclick = () => {
     kidName = kid.value.trim();
-    if (adminSub) test = BANK.filter(q => q.skill_id === adminSub);
-    else if (adminTopic) test = [...subsFor(grade).entries()].filter(([, list]) => list[0].topic === adminTopic).flatMap(([, list]) => shuffle(list).slice(0, 3));
-    else test = pickTest();
-    idx = 0; reached = 0; exitedAt = null; answers = Array(test.length).fill(undefined); showQuestion();
+    let qs;
+    if (adminSub) qs = BANK.filter(q => q.skill_id === adminSub && atLv(q));
+    else if (adminTopic) qs = [...subsFor(grade).entries()].filter(([, list]) => list[0].topic === adminTopic).flatMap(([, list]) => shuffle(list.filter(atLv)).slice(0, 3));
+    else if (adminLevel) { const lv = +adminLevel; qs = [...subsFor(grade).values()].map(list => pickAt(list, lv, {1:[1,2,3],2:[2,1,3],3:[3,2,1]}, false)); }
+    else qs = pickTest('silver');
+    if (!qs.length) return;
+    begin(qs);
   };
 }
 function renderProgress(){
@@ -482,7 +522,7 @@ function showResults(){
   const pct = seen.length ? ok/seen.length : 0;
   const msg = pct>=.9?'Amazing work!':pct>=.7?'Great job!':pct>=.5?'Good effort!':'Nice try! Practice makes it easier.';
   const rows = seen.filter(x => !onlyMissed || x.s!=='ok');
-  app.innerHTML = `<div><h2>${msg}${kidName?`, ${esc(kidName)}`:''}</h2><p class="muted">Grade ${grade} check</p><p class="muted">${exitedAt!=null?`Stopped after question ${last+1} of ${test.length}. `:''}${ok} of ${seen.length} correct.</p></div>
+  app.innerHTML = `<div><h2>${msg}${kidName?`, ${esc(kidName)}`:''}</h2><p class="muted">Grade ${grade} ${adminMode ? 'admin' : MEDALS[medal].icon + ' ' + MEDALS[medal].name} check</p><p class="muted">${exitedAt!=null?`Stopped after question ${last+1} of ${test.length}. `:''}${ok} of ${seen.length} correct.</p></div>
     <div class="summary"><div class="tile"><b>${seen.length}</b>Questions</div><div class="tile ok"><b>${ok}</b>Correct</div><div class="tile no"><b>${wrong}</b>Not quite</div><div class="tile sk"><b>${sk}</b>Skipped</div></div>
     <div class="topics">${Object.entries(byTopic).map(([t,v])=>`<span class="chip ${v.r/v.n<.5?'low':''}">${esc(t)}: ${v.r} of ${v.n}</span>`).join('')}</div>
     <div class="toolbar"><strong>Every question</strong><button class="btn btn-soft" id="filter" style="min-height:48px;padding:10px 18px;font-size:17px">${onlyMissed?'Show all':'Show only missed & skipped'}</button></div>
@@ -500,7 +540,7 @@ function row({q,a,i,s}){
   const label = s==='ok'?'✅ Correct':s==='wrong'?'❌ Not quite':'⏭️ Skipped', cls = s==='ok'?'ok':s==='wrong'?'no':'sk';
   const pics = q.answer_type==='choice_picture' ? `<div class="opts ${q.options.length===3?'three':'four'}">${q.options.map(o=>`<div class="opt" style="cursor:default;${o.id===q.correct_answer?'border-color:#1E9E62':''}">${V(o.visual_type,o.params,true)}<span class="letter">${o.id}</span></div>`).join('')}</div>` : '';
   return `<div class="row ${s==='ok'?'':s==='wrong'?'wrong':'skipped'}">
-    <div class="row-head"><span class="mark ${cls}">${i+1}. ${label}</span><span class="meta"><span class="tag">${esc(q.topic)} · ${esc(q.subtopic)}</span>${q.is_stretch?'<span class="tag stretch">Stretch</span>':''}<span class="tag">${esc(q.q_id)}</span></span></div>
+    <div class="row-head"><span class="mark ${cls}">${i+1}. ${label}</span><span class="meta"><span class="tag">${esc(q.topic)} · ${esc(q.subtopic)}</span>${q.is_stretch?'<span class="tag stretch">Stretch</span>':''}<span class="tag">Level ${q.difficulty}</span><span class="tag">${esc(q.q_id)}</span></span></div>
     <div class="row-q">${esc(q.question)}</div>${visualOf(q,true)}${pics}
     <div class="ans"><div class="${cls}"><b>Answer given</b>${esc(s==='skipped'?'Skipped':showAnswer(q,a))}</div><div><b>Correct answer</b>${esc(correctDisplay(q))}</div></div>
     ${s!=='ok' && q.wrong_answer_notes ? `<div class="note"><b>${s==='skipped'?'What this checks':'Common mistakes'}:</b> ${esc(q.wrong_answer_notes)}</div>`:''}
