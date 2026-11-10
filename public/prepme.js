@@ -350,10 +350,53 @@ function showWelcome(){
     <div class="field"><span class="label" id="glabel">Which grade are you in?</span>
       <div class="grades" role="radiogroup" aria-labelledby="glabel">${[1,2,3,4].map(g=>`<button class="gbtn" role="radio" aria-checked="${g===grade}" data-g="${g}">Grade ${g}<small>${counts[g-1]} questions</small></button>`).join('')}</div></div>
     <p class="muted">One question from each part of the grade's math. Try your best. If you don't know one, tap Skip. You'll see how you did at the end.</p>
-    <div><button class="btn btn-primary" id="start">Let's start!</button></div>`;
+    <div><button class="btn btn-primary" id="start">Let's start!</button></div>
+    <p style="margin-top:6px"><button class="link" id="toAdmin">Admin page</button></p>`;
+  adminMode = false;
   app.querySelectorAll('.gbtn').forEach(b => b.onclick = () => { grade = +b.dataset.g; app.querySelectorAll('.gbtn').forEach(x => x.setAttribute('aria-checked', String(x === b))); });
   const kid = document.getElementById('kid'); kid.oninput = () => { kidName = kid.value.trim(); };
   document.getElementById('start').onclick = () => { kidName = kid.value.trim(); test = pickTest(); idx = 0; reached = 0; exitedAt = null; answers = Array(test.length).fill(undefined); showQuestion(); };
+  document.getElementById('toAdmin').onclick = e => { e.preventDefault(); showAdmin(); };
+}
+// ---------- Admin page: same screen, plus optional Category and Subcategory ----------
+let adminMode = false, adminTopic = '', adminSub = '';
+function showAdmin(){
+  prog.hidden = true; adminMode = true;
+  const counts = [1,2,3,4].map(g => subsFor(g).size);
+  const inGrade = BANK.filter(q => q.grade === grade);
+  const topics = [...new Set(inGrade.map(q => q.topic))];
+  if (!topics.includes(adminTopic)) { adminTopic = ''; adminSub = ''; }
+  const subs = [...new Map(inGrade.filter(q => q.topic === adminTopic).map(q => [q.skill_id, q.subtopic])).entries()];
+  if (!subs.some(([id]) => id === adminSub)) adminSub = '';
+  const nSubs = adminTopic ? subs.length : 0;
+  const plan = adminSub ? `All ${inGrade.filter(q => q.skill_id === adminSub).length} questions from this subcategory.`
+             : adminTopic ? `3 questions from each of the ${nSubs} subcategories in ${esc(adminTopic)} (${nSubs * 3} questions).`
+             : `The normal Grade ${grade} test: one question from each of the ${counts[grade-1]} subcategories.`;
+  const sel = 'class="namebox" style="font-size:18px;max-width:520px"';
+  app.innerHTML = `<div style="font-size:60px;line-height:1" aria-hidden="true">🛠️</div>
+    <h1>Admin page</h1>
+    <div class="field"><label for="kid">Name</label><input id="kid" class="namebox" maxlength="20" autocomplete="off" placeholder="Type a name" value="${esc(kidName)}"></div>
+    <div class="field"><span class="label" id="glabel">Grade</span>
+      <div class="grades" role="radiogroup" aria-labelledby="glabel">${[1,2,3,4].map(g=>`<button class="gbtn" role="radio" aria-checked="${g===grade}" data-g="${g}">Grade ${g}<small>${counts[g-1]} questions</small></button>`).join('')}</div></div>
+    <div class="field"><label for="atopic">Category (optional)</label>
+      <select id="atopic" ${sel}><option value="">All categories</option>${topics.map(t => `<option value="${esc(t)}" ${t===adminTopic?'selected':''}>${esc(t)}</option>`).join('')}</select></div>
+    <div class="field"><label for="asub">Subcategory (optional)</label>
+      <select id="asub" ${sel} ${adminTopic?'':'disabled'}><option value="">${adminTopic ? 'All subcategories in this category' : 'Pick a category first'}</option>${subs.map(([id, name]) => `<option value="${id}" ${id===adminSub?'selected':''}>${esc(name)} (${id})</option>`).join('')}</select></div>
+    <p class="muted">${plan}</p>
+    <div><button class="btn btn-primary" id="start">Start test</button></div>
+    <p style="margin-top:6px"><button class="link" id="toKid">Back to the kid page</button></p>`;
+  app.querySelectorAll('.gbtn').forEach(b => b.onclick = () => { grade = +b.dataset.g; showAdmin(); });
+  const kid = document.getElementById('kid'); kid.oninput = () => { kidName = kid.value.trim(); };
+  document.getElementById('atopic').onchange = e => { adminTopic = e.target.value; adminSub = ''; showAdmin(); };
+  document.getElementById('asub').onchange = e => { adminSub = e.target.value; showAdmin(); };
+  document.getElementById('toKid').onclick = e => { e.preventDefault(); showWelcome(); };
+  document.getElementById('start').onclick = () => {
+    kidName = kid.value.trim();
+    if (adminSub) test = BANK.filter(q => q.skill_id === adminSub);
+    else if (adminTopic) test = [...subsFor(grade).entries()].filter(([, list]) => list[0].topic === adminTopic).flatMap(([, list]) => shuffle(list).slice(0, 3));
+    else test = pickTest();
+    idx = 0; reached = 0; exitedAt = null; answers = Array(test.length).fill(undefined); showQuestion();
+  };
 }
 function renderProgress(){
   prog.hidden = false;
@@ -445,7 +488,7 @@ function showResults(){
     <div class="toolbar"><strong>Every question</strong><button class="btn btn-soft" id="filter" style="min-height:48px;padding:10px 18px;font-size:17px">${onlyMissed?'Show all':'Show only missed & skipped'}</button></div>
     <div class="list">${rows.map(x=>row(x)).join('') || '<p class="muted">Nothing missed or skipped.</p>'}</div>
     <div><button class="btn btn-primary" id="again">Take a new test</button></div>`;
-  document.getElementById('again').onclick = () => { onlyMissed = false; showWelcome(); };
+  document.getElementById('again').onclick = () => { onlyMissed = false; adminMode ? showAdmin() : showWelcome(); };
   document.getElementById('filter').onclick = () => { onlyMissed = !onlyMissed; showResults(); };
   window.scrollTo(0,0);
 }
@@ -481,5 +524,5 @@ async function loadBank(){
   return rows;
 }
 app.innerHTML = '<p style="text-align:center;padding:40px 0;color:#5D6B85">Loading questions…</p>';
-loadBank().then(rows => { BANK = rows; showWelcome(); })
+loadBank().then(rows => { BANK = rows; location.hash === '#admin' ? showAdmin() : showWelcome(); })
   .catch(e => { app.innerHTML = `<p style="text-align:center;padding:40px 0">Couldn't load the questions. ${esc(e.message)}</p><p style="text-align:center"><button class="btn" onclick="location.reload()">Try again</button></p>`; });
