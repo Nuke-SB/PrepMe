@@ -473,6 +473,12 @@ function showReview(){
   document.getElementById('rtopic').onchange = e => { adminTopic = e.target.value; adminSub = ''; showReview(); };
   document.getElementById('rsub').onchange = e => { adminSub = e.target.value; if (adminSub) adminTopic = inGrade.find(q => q.skill_id === adminSub).topic; showReview(); };
 }
+function renderProgress(){
+  prog.hidden = false;
+  const done = answers.filter(a => a !== undefined).length, skipped = answers.filter(a => a === null).length;
+  prog.innerHTML = `<div class="progress-label"><span>Question ${idx+1} of ${test.length}</span><span class="muted">${done} done${skipped?` · ${skipped} skipped`:''}</span></div>
+    <div class="track" role="progressbar" aria-valuemin="0" aria-valuemax="${test.length}" aria-valuenow="${idx+1}"><div class="fill" style="width:${(idx+1)/test.length*100}%"></div></div>`;
+}
 function showQuestion(){
   app.classList.remove('wide');
   const q = test[idx]; reached = Math.max(reached, idx); renderProgress();
