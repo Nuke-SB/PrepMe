@@ -172,3 +172,19 @@ h1{font-size:clamp(32px,6vw,46px)} h2{font-size:28px} p{margin:0}
   .row svg{max-height:150px;width:auto;max-width:100%}
   .row .ans{gap:8px !important}.row .ans>div{padding:6px 10px !important}
 }
+/* admin tabs + compare grades */
+.tabs{display:flex;gap:6px;border-bottom:2px solid var(--line);margin-top:8px}
+.tab{font:700 17px var(--font-body);padding:10px 16px;border:0;background:none;color:var(--muted);border-bottom:3px solid transparent;margin-bottom:-2px;cursor:pointer}
+.tab[aria-selected="true"]{color:var(--ink);border-bottom-color:#3B74D8}
+.cmp-filters{display:flex;flex-wrap:wrap;align-items:center;gap:14px;font-size:16px}
+.cmp-chk{display:flex;align-items:center;gap:6px;font-weight:600}
+.cmp-chk input{width:18px;height:18px}
+.cmp-table td{font-size:14px}
+.cmp-sig{font-weight:700;font-size:13px;margin-bottom:2px}
+.cmp-subs{font-size:12px;margin-bottom:6px}
+.cmp-q{padding:4px 0;border-top:1px dashed var(--line);line-height:1.4}
+.cmp-id{font-size:11px}
+.cmp-flag{background:#FFF6DD}
+.cmp-flag .cmp-sig{color:#8A5A00}
+.cmp-more{margin-top:4px;font-size:14px}
+.cmp-table .tag{font-size:11px;padding:1px 6px}

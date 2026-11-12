@@ -392,10 +392,140 @@ function showWelcome(){
 }
 // ---------- Admin page: same screen, plus optional Category and Subcategory ----------
 let adminMode = false, adminTopic = '', adminSub = '', adminLevel = '';
+// ---------- strands: the same skill followed across grades (used by Admin > Compare grades) ----------
+const STRANDS = [
+ ['Numbers & counting','Counting & number words',['NC-01','NC-02','G2-SC-02']],
+ ['Numbers & counting','Skip counting & number charts',['NC-03','NC-04','NC-05','G2-SC-01']],
+ ['Numbers & counting','Even & odd',['NC-06','G2-SC-03']],
+ ['Numbers & counting','Patterns',['NP-01','NP-02']],
+ ['Place value','Place value (ones to millions)',['TB-01','TB-02','PV-01','PV-02','G2-PV-01','G3-PV-01']],
+ ['Place value','Expanded form',['PV-03','G2-PV-02','G4-PV-01']],
+ ['Place value','10 and 100 more or less',['G2-PV-04']],
+ ['Comparing & rounding','Comparing & ordering numbers',['CN-01','CN-02','G2-PV-03','G3-PV-03','G4-PV-02']],
+ ['Comparing & rounding','Rounding',['PV-04','G2-PV-05','G3-PV-02','G4-PV-03']],
+ ['Addition','Facts & mental addition',['AD-01','AD-02','AD-03','AD-04','AD-05','AD-06','G2-AD-01','G2-AD-03','G2-AD-08','G3-AD-01','G4-AD-01']],
+ ['Addition','Missing addends',['G2-AD-02']],
+ ['Addition','Adding in columns',['AD-07','G2-AD-04','G2-AD-05','G2-AD-06','G3-AD-02','G3-AD-03','G4-AD-02']],
+ ['Subtraction','Facts & mental subtraction',['SB-01','SB-02','G2-SB-01','G2-SB-02','G2-SB-07','G3-SB-01','G4-SB-01']],
+ ['Subtraction','Subtracting in columns',['SB-03','G2-SB-03','G2-SB-04','G3-SB-02','G3-SB-03','G4-SB-02']],
+ ['Subtraction','Fact families & missing numbers',['SB-04','G2-SB-06','G2-SB-08']],
+ ['Multiplication','Meaning: groups & arrays',['G2-MU-01','G2-MU-02','G3-MU-01']],
+ ['Multiplication','Times tables & missing factors',['G2-MU-03','G2-MU-04','G3-MU-02','G3-MU-03','G3-MU-04','G4-MU-01']],
+ ['Multiplication','Properties',['G3-MU-06','G4-MU-02']],
+ ['Multiplication','Multiplying tens & hundreds',['G3-MU-05','G4-MU-03']],
+ ['Multiplication','Multi-digit multiplication',['G3-MU-07','G4-MU-04','G4-MU-05']],
+ ['Division','Meaning & division facts',['G3-DV-01','G3-DV-02','G3-DV-03','G3-DV-05','G4-DV-01']],
+ ['Division','Remainders & long division',['G3-DV-04','G4-DV-02','G4-DV-03']],
+ ['Division','Dividing by 10, 100 & tens',['G3-DV-06']],
+ ['Order of operations','Order of operations',['G3-OO-01','G4-OO-01']],
+ ['Factors & multiples','Factors, multiples & primes',['G4-FM-01','G4-FM-02','G4-FM-03']],
+ ['Fractions','Equal parts & naming fractions',['FR-01','FR-02','G2-FR-01','G2-FR-02','G2-FR-03','G3-FR-01','G3-FR-02']],
+ ['Fractions','Fraction of a set',['G2-FR-04','G3-FR-05','G4-FR-05']],
+ ['Fractions','Equivalent & simplest form',['G3-FR-03','G3-FR-07','G4-FR-01']],
+ ['Fractions','Comparing fractions',['G2-FR-05','G3-FR-04','G4-FR-02']],
+ ['Fractions','Adding & subtracting fractions',['G3-FR-08','G4-FR-03']],
+ ['Fractions','Mixed numbers',['G3-FR-09','G4-FR-04']],
+ ['Decimals','Decimals & fractions',['G3-FR-06','G4-DC-01']],
+ ['Decimals','Comparing decimals',['G3-FR-10','G4-DC-02']],
+ ['Decimals','Adding & subtracting decimals',['G3-FR-11','G4-DC-03']],
+ ['Measurement','Length',['ME-01','G2-ME-01','G2-ME-02','G2-ME-03','G2-ME-04','G2-ME-05','G3-ME-02','G3-ME-03','G4-ME-01']],
+ ['Measurement','Weight & capacity',['ME-02','ME-03','G2-ME-06','G2-ME-07','G3-ME-01','G3-ME-04','G3-ME-05','G4-ME-02','G4-ME-03']],
+ ['Measurement','Temperature',['G2-ME-08','G3-ME-06']],
+ ['Money','Coins, bills & counting money',['MO-01','MO-02','G2-MO-01','G2-MO-02','G2-MO-04','G2-MO-05','G3-MO-01','G3-MO-03']],
+ ['Money','Making change',['G3-MO-02']],
+ ['Time','Telling time',['TM-01','TM-02','G2-TM-01','G2-TM-02','G3-TM-01','G3-TM-04']],
+ ['Time','Elapsed time',['TM-03','G2-TM-03','G3-TM-02']],
+ ['Time','Calendar',['TM-04','G2-TM-04','G3-TM-03','G3-TM-05']],
+ ['Geometry','2D shapes & polygons',['GE-01','G2-GE-01','G3-GE-01','G3-GE-08','G4-GE-03']],
+ ['Geometry','Symmetry, congruence & reflections',['GE-02','G2-GE-04','G3-GE-04','G3-GE-09','G4-GE-05']],
+ ['Geometry','3D shapes & volume',['GE-03','GE-04','G2-GE-03','G4-GE-07']],
+ ['Geometry','Area & perimeter',['G2-GE-02','G2-GE-05','G3-GE-02','G3-GE-05','G3-GE-06','G3-GE-07','G4-GE-04']],
+ ['Geometry','Lines & angles',['G3-GE-03','G3-GE-10','G4-GE-01','G4-GE-02']],
+ ['Geometry','Coordinate grids',['G4-GE-06']],
+ ['Data & graphing','Sorting & tally charts',['DG-01','DG-02','G2-DG-04','G3-DG-04']],
+ ['Data & graphing','Picture & bar graphs',['DG-03','G2-DG-01','G2-DG-02','G3-DG-01','G3-DG-02']],
+ ['Data & graphing','Line plots & stem-and-leaf',['G2-DG-03','G3-DG-03','G4-DG-01','G4-DG-02']],
+ ['Data & graphing','Venn, circle & line graphs',['G2-DG-05','G2-DG-06','G2-DG-07','G3-DG-05','G3-DG-06','G3-DG-07']],
+ ['Data & graphing','Probability',['G4-DG-03']],
+ ['Word problems','One-step add & subtract',['AD-08','SB-05','WP-01','G2-AD-07','G2-SB-05','G2-WP-02','G3-WP-03']],
+ ['Word problems','Two-step & multi-step',['G2-WP-01','G3-WP-02','G4-WP-01']],
+ ['Word problems','Multiply & divide stories',['G3-WP-01','G4-WP-02']],
+ ['Word problems','Fraction, decimal & estimation stories',['FR-03','G4-WP-03','G4-WP-04']],
+ ['Word problems','Measurement, money & time stories',['ME-04','MO-03','TM-05','G2-MO-03','G4-ME-04']],
+ ['Roman numerals','Roman numerals',['G3-RN-01']],
+];
+
+let adminTab = 'levels', cmpGrades = [2,3,4], cmpLevel = '2', cmpTopic = '', cmpStrand = '', cmpFlagged = false, cmpOpen = new Set();
+function adminTabs(){
+  return `<div class="tabs" role="tablist">${[['levels','Compare levels'],['grades','Compare grades']].map(([k,t]) =>
+    `<button class="tab" role="tab" aria-selected="${adminTab===k}" data-tab="${k}">${t}</button>`).join('')}</div>`;
+}
+function bindTabs(){ app.querySelectorAll('.tab').forEach(b => b.onclick = () => { adminTab = b.dataset.tab; showAdmin(); }); }
+// toughness signal for one question: biggest number, how many numbers, how many words
+function signal(q){
+  const p = q.params || {};
+  const txt = q.question + ' ' + [p.nums, p.dividend, p.divisor, p.a, p.b].flat().filter(x => x != null).join(' ');
+  const nums = (txt.match(/\d[\d,]*(?:\.\d+)?/g) || []).map(x => +x.replace(/,/g, '')).filter(x => !isNaN(x));
+  return { big: nums.length ? Math.max(...nums) : 0, n: nums.length, w: q.question.split(/\s+/).filter(Boolean).length };
+}
+const median = a => { if (!a.length) return 0; const b = [...a].sort((x, y) => x - y); return b[Math.floor((b.length - 1) / 2)]; };
+function showCompare(){
+  prog.hidden = true; adminMode = true; app.classList.add('wide');
+  const lv = cmpLevel ? +cmpLevel : 0, grades = [...cmpGrades].sort();
+  const cats = [...new Set(STRANDS.map(s => s[0]))];
+  const strandsIn = STRANDS.filter(s => !cmpTopic || s[0] === cmpTopic);
+  if (cmpStrand && !strandsIn.some(s => s[1] === cmpStrand)) cmpStrand = '';
+  const rowsData = strandsIn.filter(s => !cmpStrand || s[1] === cmpStrand).map(([cat, name, ids]) => {
+    const cells = grades.map(g => {
+      const qs = BANK.filter(q => q.grade === g && ids.includes(q.skill_id) && (!lv || q.difficulty === lv));
+      const sg = qs.map(signal);
+      return { g, qs, big: median(sg.map(x => x.big)), n: median(sg.map(x => x.n)), w: median(sg.map(x => x.w)), subs: [...new Set(qs.map(q => q.subtopic))] };
+    });
+    let prev = null;
+    cells.forEach(c => { if (!c.qs.length) return; if (prev && prev.big > 0 && c.big <= prev.big && c.n <= prev.n && c.w <= prev.w) c.flag = prev.g; prev = c; });
+    return { cat, name, cells, flagged: cells.some(c => c.flag) };
+  }).filter(r => r.cells.some(c => c.qs.length) && (!cmpFlagged || r.flagged));
+  const nFlag = rowsData.reduce((a, r) => a + r.cells.filter(c => c.flag).length, 0);
+  const fmt = n => n.toLocaleString('en-US');
+  const cell = (r, c) => {
+    if (!c.qs.length) return `<td class="cmp-empty"><span class="muted">No questions${lv ? ' at this level' : ''}</span></td>`;
+    const key = r.name + '|' + c.g, open = cmpOpen.has(key), show = open ? c.qs : c.qs.slice(0, 3);
+    return `<td class="${c.flag ? 'cmp-flag' : ''}">
+      <div class="cmp-sig">${c.flag ? `⚠️ Not harder than Grade ${c.flag} · ` : ''}Largest ${fmt(c.big)} · ${c.n} numbers · ${c.w} words <span class="muted">(typical)</span></div>
+      <div class="muted cmp-subs">${c.subs.map(esc).join(' · ')} · ${c.qs.length} q</div>
+      ${show.map(q => `<div class="cmp-q"><span class="tag lv${q.difficulty}">L${q.difficulty}</span> ${esc(q.question)} <span class="muted">→ ${esc(correctDisplay(q))}</span> <span class="muted cmp-id">${esc(q.q_id)}</span></div>`).join('')}
+      ${c.qs.length > 3 ? `<button class="link cmp-more" data-k="${esc(key)}">${open ? 'Show fewer' : `Show all ${c.qs.length}`}</button>` : ''}</td>`;
+  };
+  const byCat = []; rowsData.forEach(r => { const last = byCat[byCat.length - 1]; if (last && last.cat === r.cat) last.rows.push(r); else byCat.push({ cat: r.cat, rows: [r] }); });
+  const body = byCat.map(gp => gp.rows.map((r, i) => `<tr class="${i===0?'first':''}">${i===0?`<td class="rv-cat" rowspan="${gp.rows.length}">${esc(gp.cat)}</td>`:''}<td class="rv-sub">${esc(r.name)}</td>${r.cells.map(c => cell(r, c)).join('')}</tr>`).join('')).join('');
+  const fsel = 'class="rv-filter"';
+  app.innerHTML = `<div class="rv-top"><div><h2>Admin page</h2>${adminTabs()}</div><button class="btn btn-soft" id="toKid">← Kid page</button></div>
+    <div class="cmp-filters">
+      <span class="label">Grades</span>${[1,2,3,4].map(g => `<label class="cmp-chk"><input type="checkbox" data-g="${g}" ${grades.includes(g)?'checked':''}> Grade ${g}</label>`).join('')}
+      <label class="label">Level <select id="clevel" ${fsel} style="width:auto;display:inline-block;margin-left:6px"><option value="">All levels</option>${[1,2,3].map(l=>`<option value="${l}" ${String(l)===cmpLevel?'selected':''}>Level ${l} (${['Bronze','Silver','Gold'][l-1]})</option>`).join('')}</select></label>
+      <label class="cmp-chk"><input type="checkbox" id="cflag" ${cmpFlagged?'checked':''}> Only flagged</label>
+    </div>
+    <p class="muted" style="margin:0">${rowsData.length} strands · ${nFlag} flagged cell${nFlag===1?'':'s'} (a grade whose typical largest number, count of numbers and length are all no higher than the grade before it)</p>
+    <div class="rv-scroll"><table class="rv-table cmp-table"><thead><tr>
+      <th class="rv-cat">Category<select id="ctopic" ${fsel}><option value="">All</option>${cats.map(t=>`<option ${t===cmpTopic?'selected':''}>${esc(t)}</option>`).join('')}</select></th>
+      <th class="rv-sub">Strand<select id="cstrand" ${fsel}><option value="">All</option>${strandsIn.map(s=>`<option ${s[1]===cmpStrand?'selected':''}>${esc(s[1])}</option>`).join('')}</select></th>
+      ${grades.map(g => `<th>Grade ${g}</th>`).join('')}</tr></thead>
+      <tbody>${body || `<tr><td colspan="${2+grades.length}" class="muted">Nothing matches these filters.</td></tr>`}</tbody></table></div>`;
+  bindTabs();
+  document.getElementById('toKid').onclick = () => { adminMode = false; showWelcome(); };
+  app.querySelectorAll('.cmp-chk input[data-g]').forEach(b => b.onchange = () => { const g = +b.dataset.g; cmpGrades = b.checked ? [...new Set([...cmpGrades, g])] : cmpGrades.filter(x => x !== g); if (!cmpGrades.length) cmpGrades = [g]; showCompare(); });
+  document.getElementById('clevel').onchange = e => { cmpLevel = e.target.value; showCompare(); };
+  document.getElementById('cflag').onchange = e => { cmpFlagged = e.target.checked; showCompare(); };
+  document.getElementById('ctopic').onchange = e => { cmpTopic = e.target.value; cmpStrand = ''; showCompare(); };
+  document.getElementById('cstrand').onchange = e => { cmpStrand = e.target.value; showCompare(); };
+  app.querySelectorAll('.cmp-more').forEach(b => b.onclick = () => { const k = b.dataset.k; cmpOpen.has(k) ? cmpOpen.delete(k) : cmpOpen.add(k); showCompare(); });
+}
+
 function adminPool(){
   return BANK.filter(q => q.grade === grade && (!adminTopic || q.topic === adminTopic) && (!adminSub || q.skill_id === adminSub));
 }
 function showAdmin(){
+  if (adminTab === 'grades') return showCompare();
   prog.hidden = true; adminMode = true; app.classList.remove('wide');
   const inGrade = BANK.filter(q => q.grade === grade);
   const topics = [...new Set(inGrade.map(q => q.topic))];
@@ -407,7 +537,7 @@ function showAdmin(){
   const where = adminSub ? 'this subcategory' : adminTopic ? esc(adminTopic) : `all of Grade ${grade}`;
   const sel = 'class="namebox" style="font-size:18px;max-width:520px"';
   app.innerHTML = `<div style="font-size:60px;line-height:1" aria-hidden="true">🛠️</div>
-    <h1>Admin page</h1>
+    <h1>Admin page</h1>${adminTabs()}
     <div class="field"><span class="label" id="glabel">Grade</span>
       <div class="grades" role="radiogroup" aria-labelledby="glabel">${[1,2,3,4].map(g=>`<button class="gbtn" role="radio" aria-checked="${g===grade}" data-g="${g}">Grade ${g}<small>${BANK.filter(q => q.grade === g).length} in the bank</small></button>`).join('')}</div></div>
     <div class="field"><label for="atopic">Category (optional)</label>
@@ -425,6 +555,7 @@ function showAdmin(){
   document.getElementById('alevel').onchange = e => { adminLevel = e.target.value; showAdmin(); };
   document.getElementById('toKid').onclick = e => { e.preventDefault(); adminMode = false; showWelcome(); };
   document.getElementById('review').onclick = showReview;
+  bindTabs();
 }
 // ---------- admin review page: a table, one row per question slot, Level 1 / 2 / 3 side by side ----------
 function showReview(){
