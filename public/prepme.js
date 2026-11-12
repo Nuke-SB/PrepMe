@@ -274,7 +274,7 @@ function linePlot(p){const xs=p.values.map(v=>v.x),n=xs.length,W=Math.max(420,n*
   o+=`<line x1="20" y1="${y0}" x2="${W-20}" y2="${y0}" stroke="${INK}" stroke-width="3"/>`;
   p.values.forEach((v,i)=>{const x=40+i*step;o+=`<line x1="${x}" y1="${y0-8}" x2="${x}" y2="${y0+8}" stroke="${INK}" stroke-width="2"/>`+T(x,y0+30,v.x,`font-size="18" fill="${INK}"`);
     for(let k=0;k<v.count;k++)o+=T(x,y0-16-k*26,'✕',`font-size="22" fill="${SKY}"`);});
-  o+=T(W/2,y0+58,esc(p.title),`font-size="16" fill="#5D6B85"`);
+  o+=T(W/2,y0+58,esc(p.title||''),`font-size="16" fill="#5D6B85"`);
   return `<svg viewBox="0 0 ${W} ${y0+70}" width="${W}" height="${y0+70}" role="img" aria-label="Line plot">${o}</svg>`;}
 function angleV(p){const rot=Math.min(p.rotate||0,180-p.degrees),cx=110,cy=140,L=95,a1=-rot*Math.PI/180,a2=a1-p.degrees*Math.PI/180;
   const P=a=>[cx+L*Math.cos(a),cy+L*Math.sin(a)],[x1,y1]=P(a1),[x2,y2]=P(a2),ar=34,[ax1,ay1]=[cx+ar*Math.cos(a1),cy+ar*Math.sin(a1)],[ax2,ay2]=[cx+ar*Math.cos(a2),cy+ar*Math.sin(a2)];
@@ -544,6 +544,29 @@ function wire(q){
   });
   refresh();
 }
+
+
+// ---------- keyboard: number keys, Backspace, Enter (works alongside the on-screen pad) ----------
+document.addEventListener('keydown', e => {
+  if (e.ctrlKey || e.metaKey || e.altKey) return;
+  const tag = (document.activeElement && document.activeElement.tagName) || '';
+  if (['INPUT','TEXTAREA','SELECT'].includes(tag)) return;
+  const pad = app.querySelector('.pad'), opts = [...app.querySelectorAll('.opt')];
+  if (!pad && !opts.length) return;
+  const tap = el => { if (!el) return false; el.click(); el.classList.add('pressed'); setTimeout(() => el.classList.remove('pressed'), 120); return true; };
+  let done = false;
+  if (pad) {
+    if (/^[0-9]$/.test(e.key)) done = tap(pad.querySelector(`.key[data-k="${e.key}"]`));
+    else if (e.key === 'Backspace' || e.key === 'Delete') done = tap(pad.querySelector('.key[data-k="back"]'));
+    else if (e.key === ':') done = tap(pad.querySelector('.key[data-k=":"]'));
+    else if (e.key === 'Tab' && cur.at === 'multi_number') { cur.field = (cur.field + (e.shiftKey ? cur.parts.length - 1 : 1)) % cur.parts.length; refresh(); done = true; }
+  } else if (/^[1-4]$/.test(e.key) || /^[a-dA-D]$/.test(e.key)) {
+    const i = /^[1-4]$/.test(e.key) ? +e.key - 1 : e.key.toUpperCase().charCodeAt(0) - 65;
+    done = tap(opts[i]);
+  }
+  if (e.key === 'Enter') { const nx = document.getElementById('next'); if (nx && !nx.disabled) done = tap(nx); }
+  if (done) e.preventDefault();
+});
 
 // ---------- results ----------
 function showResults(){
