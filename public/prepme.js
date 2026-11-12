@@ -578,15 +578,32 @@ function showResults(){
   const pct = seen.length ? ok/seen.length : 0;
   const msg = pct>=.9?'Amazing work!':pct>=.7?'Great job!':pct>=.5?'Good effort!':'Nice try! Practice makes it easier.';
   const rows = seen.filter(x => !onlyMissed || x.s!=='ok');
-  app.innerHTML = `<div><h2>${msg}${kidName?`, ${esc(kidName)}`:''}</h2><p class="muted">Grade ${grade} ${adminMode ? 'admin' : MEDALS[medal].icon + ' ' + MEDALS[medal].name} check</p><p class="muted">${exitedAt!=null?`Stopped after question ${last+1} of ${test.length}. `:''}${ok} of ${seen.length} correct.</p></div>
-    <div class="summary"><div class="tile"><b>${seen.length}</b>Questions</div><div class="tile ok"><b>${ok}</b>Correct</div><div class="tile no"><b>${wrong}</b>Not quite</div><div class="tile sk"><b>${sk}</b>Skipped</div></div>
-    <div class="topics">${Object.entries(byTopic).map(([t,v])=>`<span class="chip ${v.r/v.n<.5?'low':''}">${esc(t)}: ${v.r} of ${v.n}</span>`).join('')}</div>
+  app.innerHTML = `<div><h2>${kidName ? msg.replace(/!$/, '').replace(/^(Nice try)! .*/, '$1') + `, ${esc(kidName)}!` : msg}</h2><p class="muted">Grade ${grade} ${adminMode ? 'admin' : MEDALS[medal].icon + ' ' + MEDALS[medal].name} check</p>${exitedAt!=null?`<p class="muted">Stopped after question ${last+1} of ${test.length}.</p>`:''}</div>
+    ${reportA(seen, byTopic, ok, wrong, sk)}
     <div class="toolbar"><strong>Every question</strong><button class="btn btn-soft" id="filter" style="min-height:48px;padding:10px 18px;font-size:17px">${onlyMissed?'Show all':'Show only missed & skipped'}</button></div>
     <div class="list">${rows.map(x=>row(x)).join('') || '<p class="muted">Nothing missed or skipped.</p>'}</div>
     <div><button class="btn btn-primary" id="again">Take a new test</button></div>`;
   document.getElementById('again').onclick = () => { onlyMissed = false; adminMode ? showAdmin() : showWelcome(); };
   document.getElementById('filter').onclick = () => { onlyMissed = !onlyMissed; showResults(); };
   window.scrollTo(0,0);
+}
+// ---------- results report (Option A): score tiles + % correct by category, strongest first ----------
+function reportA(seen, byTopic, ok, wrong, sk){
+  const p = (r, n) => n ? Math.round(r / n * 100) : 0;
+  const band = v => v >= 80 ? 'strong' : v >= 60 ? 'mid' : 'focus';
+  const cats = Object.entries(byTopic).map(([t, v]) => ({ t, r: v.r, n: v.n, v: p(v.r, v.n) })).sort((a, b) => b.v - a.v || b.n - a.n || a.t.localeCompare(b.t));
+  const strong = cats.filter(c => c.v >= 80).length, practice = cats.length - strong;
+  return `<section class="rep" aria-label="Score by category">
+    <div class="rep-tiles">
+      <div class="rep-tile"><span>Score</span><b>${ok} / ${seen.length}</b></div>
+      <div class="rep-tile"><span>Percent</span><b>${p(ok, seen.length)}%</b></div>
+      <div class="rep-tile"><span>Strong areas</span><b>${strong}</b></div>
+      <div class="rep-tile"><span>Areas to practice</span><b>${practice}</b></div>
+    </div>
+    <p class="muted rep-sub">${ok} correct · ${wrong} not quite · ${sk} skipped</p>
+    <div class="rep-bars">${cats.map(c => `<div class="rep-row"><span class="rep-name">${esc(c.t)}</span><span class="rep-track" role="img" aria-label="${esc(c.t)}: ${c.r} of ${c.n} correct"><span class="rep-bar ${band(c.v)}" style="width:${Math.max(c.v, 2)}%"></span></span><span class="rep-cnt">${c.r}/${c.n} · ${c.v}%</span></div>`).join('')}</div>
+    <div class="rep-leg"><span><i class="strong"></i>Strong · 80%+</span><span><i class="mid"></i>Getting there · 60–79%</span><span><i class="focus"></i>Focus · under 60%</span></div>
+  </section>`;
 }
 function correctDisplay(q){
   if (q.answer_type==='choice_picture') return `${q.correct_answer}`;
