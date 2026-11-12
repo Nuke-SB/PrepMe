@@ -516,6 +516,7 @@ function confirmExit(){
   z.innerHTML = `<div class="confirm"><span>Stop here and see the results for the questions so far?</span><span style="display:flex;gap:8px"><button class="btn btn-soft" id="stay">Keep going</button><button class="btn btn-primary" id="leave">See results</button></span></div>`;
   document.getElementById('stay').onclick = () => { z.innerHTML = '<button class="link" id="exit">Exit test and see results</button>'; document.getElementById('exit').onclick = confirmExit; };
   document.getElementById('leave').onclick = () => { const a = answerNow(); if (a !== '') answers[idx] = a; exitedAt = idx; showResults(); };
+  document.getElementById('stay').focus();
 }
 function pad(colon){
   return `<div class="pad">${[1,2,3,4,5,6,7,8,9].map(k=>`<button class="key" data-k="${k}">${k}</button>`).join('')}
@@ -546,24 +547,23 @@ function wire(q){
 }
 
 
-// ---------- keyboard for typed answers: number keys, Backspace, Enter (choice questions are tap/click only) ----------
+// ---------- keyboard during a math test: only 0-9 and Backspace (plus ':' on time questions) ----------
+// Every other key is ignored. Enter and Space are blocked so they can't "click" a focused button such as Exit.
+function inTest(){ return !!document.getElementById('exitzone'); }
 document.addEventListener('keydown', e => {
+  if (!inTest()) return;
+  if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); return; }
   if (e.ctrlKey || e.metaKey || e.altKey) return;
-  const tag = (document.activeElement && document.activeElement.tagName) || '';
-  if (['INPUT','TEXTAREA','SELECT'].includes(tag)) return;
-  const pad = app.querySelector('.pad'), opts = [...app.querySelectorAll('.opt')];
-  if (!pad && !opts.length) return;
+  const pad = app.querySelector('.pad'); if (!pad) return;
   const tap = el => { if (!el) return false; el.click(); el.classList.add('pressed'); setTimeout(() => el.classList.remove('pressed'), 120); return true; };
   let done = false;
-  if (pad) {
-    if (/^[0-9]$/.test(e.key)) done = tap(pad.querySelector(`.key[data-k="${e.key}"]`));
-    else if (e.key === 'Backspace' || e.key === 'Delete') done = tap(pad.querySelector('.key[data-k="back"]'));
-    else if (e.key === ':') done = tap(pad.querySelector('.key[data-k=":"]'));
-    else if (e.key === 'Tab' && cur.at === 'multi_number') { cur.field = (cur.field + (e.shiftKey ? cur.parts.length - 1 : 1)) % cur.parts.length; refresh(); done = true; }
-  }
-  if (pad && e.key === 'Enter') { const nx = document.getElementById('next'); if (nx && !nx.disabled) done = tap(nx); }
-  if (done) e.preventDefault();
+  if (/^[0-9]$/.test(e.key)) done = tap(pad.querySelector(`.key[data-k="${e.key}"]`));
+  else if (e.key === 'Backspace') done = tap(pad.querySelector('.key[data-k="back"]'));
+  else if (e.key === ':') done = tap(pad.querySelector('.key[data-k=":"]'));   // the ':' key only exists on time questions
+  if (done || e.key === 'Backspace') e.preventDefault();
 });
+// browser warning on refresh, back or closing the tab while a test is in progress
+window.addEventListener('beforeunload', e => { if (inTest()) { e.preventDefault(); e.returnValue = ''; } });
 
 // ---------- results ----------
 function showResults(){
