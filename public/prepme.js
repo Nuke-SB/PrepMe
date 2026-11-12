@@ -580,12 +580,26 @@ function showResults(){
   const rows = seen.filter(x => !onlyMissed || x.s!=='ok');
   app.innerHTML = `<div><h2>${kidName ? msg.replace(/!$/, '').replace(/^(Nice try)! .*/, '$1') + `, ${esc(kidName)}!` : msg}</h2><p class="muted">Grade ${grade} ${adminMode ? 'admin' : MEDALS[medal].icon + ' ' + MEDALS[medal].name} check</p>${exitedAt!=null?`<p class="muted">Stopped after question ${last+1} of ${test.length}.</p>`:''}</div>
     ${reportA(seen, byTopic, ok, wrong, sk)}
-    <div class="toolbar"><strong>Every question</strong><button class="btn btn-soft" id="filter" style="min-height:48px;padding:10px 18px;font-size:17px">${onlyMissed?'Show all':'Show only missed & skipped'}</button></div>
+    <div class="toolbar no-print"><button class="btn btn-soft" id="pdf" style="min-height:48px;padding:10px 18px;font-size:17px">⬇ Download PDF</button><span class="muted" style="font-size:14px">In the print window, choose “Save as PDF”.</span></div>
+    <div class="toolbar"><strong>Every question</strong><button class="btn btn-soft no-print" id="filter" style="min-height:48px;padding:10px 18px;font-size:17px">${onlyMissed?'Show all':'Show only missed & skipped'}</button></div>
     <div class="list">${rows.map(x=>row(x)).join('') || '<p class="muted">Nothing missed or skipped.</p>'}</div>
-    <div><button class="btn btn-primary" id="again">Take a new test</button></div>`;
+    <div class="no-print"><button class="btn btn-primary" id="again">Take a new test</button></div>`;
   document.getElementById('again').onclick = () => { onlyMissed = false; adminMode ? showAdmin() : showWelcome(); };
   document.getElementById('filter').onclick = () => { onlyMissed = !onlyMissed; showResults(); };
+  document.getElementById('pdf').onclick = () => downloadPdf();
   window.scrollTo(0,0);
+}
+// ---------- PDF: the browser's print window saves the results page as a PDF (text stays sharp, page breaks between questions) ----------
+function downloadPdf(){
+  const d = new Date(), day = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+  const who = (kidName || 'Student').replace(/[^\w\- ]+/g, '').trim().replace(/\s+/g, '-');
+  const lvl = adminMode ? 'Admin' : MEDALS[medal].name;
+  let head = document.getElementById('print-head');
+  if (!head) { head = document.createElement('div'); head.id = 'print-head'; app.prepend(head); }
+  head.innerHTML = `<b>PrepMe math check</b><span>${esc(kidName || 'Student')} · Grade ${grade} · ${lvl} · ${d.toLocaleDateString(undefined, { year:'numeric', month:'long', day:'numeric' })}</span>`;
+  const old = document.title; document.title = `PrepMe-${who}-Grade${grade}-${lvl}-${day}`;   // becomes the PDF file name
+  const done = () => { document.title = old; window.removeEventListener('afterprint', done); };
+  window.addEventListener('afterprint', done); window.print(); setTimeout(done, 1500);
 }
 // ---------- results report (Option A): score tiles + % correct by category, strongest first ----------
 function reportA(seen, byTopic, ok, wrong, sk){
