@@ -493,7 +493,7 @@ function showCompare(){
     return `<td class="${c.flag ? 'cmp-flag' : ''}">
       <div class="cmp-sig">${c.flag ? `⚠️ Not harder than Grade ${c.flag} · ` : ''}Largest ${fmt(c.big)} · ${c.n} numbers · ${c.w} words <span class="muted">(typical)</span></div>
       <div class="muted cmp-subs">${c.subs.map(esc).join(' · ')} · ${c.qs.length} q</div>
-      ${show.map(q => `<div class="cmp-q"><span class="tag lv${q.difficulty}">L${q.difficulty}</span> ${esc(q.question)} <span class="muted">→ ${esc(correctDisplay(q))}</span> <span class="muted cmp-id">${esc(q.q_id)}</span></div>`).join('')}
+      ${show.map(q => `<div class="cmp-q"><span class="tag lv${q.difficulty}">L${q.difficulty}</span> ${esc(q.question)} <span class="muted">→ ${esc(correctDisplay(q))}</span> <span class="muted cmp-id">${esc(q.q_id)}</span> ${previewLink(q.q_id)}</div>`).join('')}
       ${c.qs.length > 3 ? `<button class="link cmp-more" data-k="${esc(key)}">${open ? 'Show fewer' : `Show all ${c.qs.length}`}</button>` : ''}</td>`;
   };
   const byCat = []; rowsData.forEach(r => { const last = byCat[byCat.length - 1]; if (last && last.cat === r.cat) last.rows.push(r); else byCat.push({ cat: r.cat, rows: [r] }); });
@@ -571,7 +571,7 @@ function showReview(){
     let opts = '';
     if (q.answer_type === 'choice_text') opts = `<ul class="rv-opts">${q.options.map(o => `<li class="${String(o) === String(q.correct_answer) ? 'right' : ''}">${esc(o)}</li>`).join('')}</ul>`;
     if (q.answer_type === 'choice_picture') opts = `<div class="opts ${q.options.length===3?'three':'four'}">${q.options.map(o=>`<div class="opt" style="cursor:default;${o.id===q.correct_answer?'border-color:#1E9E62':''}">${V(o.visual_type,o.params,true)}<span class="letter">${o.id}</span></div>`).join('')}</div>`;
-    return `<div class="rv-card"><div class="meta"><span class="tag">${esc(q.q_id)}</span><span class="tag lv${q.difficulty}">Level ${q.difficulty}</span>${q.is_stretch?'<span class="tag stretch">Stretch</span>':''}</div>
+    return `<div class="rv-card"><div class="meta"><span class="tag">${esc(q.q_id)}</span><span class="tag lv${q.difficulty}">Level ${q.difficulty}</span>${q.is_stretch?'<span class="tag stretch">Stretch</span>':''}${previewLink(q.q_id)}</div>
       <div class="row-q">${esc(q.question)}</div>${visualOf(q, true)}${opts}
       <div class="rv-ans"><b>Answer</b> ${esc(correctDisplay(q))}${q.params && q.params.unit ? ' ' + esc(q.params.unit) : ''}</div>
       ${q.wrong_answer_notes ? `<div class="rv-note"><b>Note</b> ${esc(q.wrong_answer_notes)}</div>` : ''}</div>`;
@@ -630,7 +630,7 @@ function showQuestion(){
     input = `<div class="answer-row"><div class="box active" id="fv" aria-label="Your answer"></div>${unit}</div>${pad(q.answer_type==='time')}`;
   }
   const qHtml = q.visual_type==='column' ? `<p class="q-text">${esc(q.question)}</p>` : `<p class="q-text">${esc(q.question)}</p>`;
-  app.innerHTML = `<span class="topic-tag">Grade ${grade} · ${esc(q.topic)}</span>${qHtml}${visualOf(q)}${input}
+  app.innerHTML = `<span class="topic-tag">Grade ${grade} · ${esc(q.topic)}${previewId ? ` · Preview of ${esc(previewId)} (Level ${q.difficulty})` : ''}</span>${qHtml}${visualOf(q)}${input}
     <div class="nav"><button class="btn btn-soft" id="prev" ${idx===0?'disabled':''}>← Previous</button>
       <div class="right"><button class="btn btn-skip" id="skip">Skip</button><button class="btn btn-primary" id="next" disabled>${idx===test.length-1?'Finish':'Next →'}</button></div></div>
     <div class="exit" id="exitzone"><button class="link" id="exit">Exit test and see results</button></div>`;
@@ -678,6 +678,17 @@ function wire(q){
 }
 
 
+// ---------- start-up routes: #admin opens the admin page, #q=<question id> previews one question as a kid sees it ----------
+function route(){
+  const m = location.hash.match(/^#q=([\w-]+)/);
+  if (m) {
+    const q = BANK.find(x => x.q_id === decodeURIComponent(m[1]));
+    if (q) { previewId = q.q_id; adminMode = true; grade = q.grade; kidName = ''; begin([q]); return; }
+  }
+  location.hash === '#admin' ? showAdmin() : showWelcome();
+}
+let previewId = null;
+const previewLink = id => `<a class="qlink" href="#q=${encodeURIComponent(id)}" target="_blank" rel="noopener" title="Open this question as the kid sees it (new tab)">Open ↗</a>`;
 // ---------- keyboard during a math test: only 0-9 and Backspace (plus ':' on time questions) ----------
 // Every other key is ignored. Enter and Space are blocked so they can't "click" a focused button such as Exit.
 function inTest(){ return !!document.getElementById('exitzone'); }
@@ -694,7 +705,7 @@ document.addEventListener('keydown', e => {
   if (done || e.key === 'Backspace') e.preventDefault();
 });
 // browser warning on refresh, back or closing the tab while a test is in progress
-window.addEventListener('beforeunload', e => { if (inTest()) { e.preventDefault(); e.returnValue = ''; } });
+window.addEventListener('beforeunload', e => { if (inTest() && !previewId) { e.preventDefault(); e.returnValue = ''; } });
 
 // ---------- results ----------
 function showResults(){
@@ -782,5 +793,5 @@ async function loadBank(){
   return rows;
 }
 app.innerHTML = '<p style="text-align:center;padding:40px 0;color:#5D6B85">Loading questions…</p>';
-loadBank().then(rows => { BANK = rows; location.hash === '#admin' ? showAdmin() : showWelcome(); })
+loadBank().then(rows => { BANK = rows; route(); })
   .catch(e => { app.innerHTML = `<p style="text-align:center;padding:40px 0">Couldn't load the questions. ${esc(e.message)}</p><p style="text-align:center"><button class="btn" onclick="location.reload()">Try again</button></p>`; });

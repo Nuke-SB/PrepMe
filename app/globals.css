@@ -188,3 +188,4 @@ h1{font-size:clamp(32px,6vw,46px)} h2{font-size:28px} p{margin:0}
 .cmp-flag .cmp-sig{color:#8A5A00}
 .cmp-more{margin-top:4px;font-size:14px}
 .cmp-table .tag{font-size:11px;padding:1px 6px}
+.qlink{font-size:12px;font-weight:700;color:#3B74D8;text-decoration:none;margin-left:6px;white-space:nowrap}.qlink:hover{text-decoration:underline}
