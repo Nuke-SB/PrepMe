@@ -546,7 +546,7 @@ function wire(q){
 }
 
 
-// ---------- keyboard: number keys, Backspace, Enter (works alongside the on-screen pad) ----------
+// ---------- keyboard for typed answers: number keys, Backspace, Enter (choice questions are tap/click only) ----------
 document.addEventListener('keydown', e => {
   if (e.ctrlKey || e.metaKey || e.altKey) return;
   const tag = (document.activeElement && document.activeElement.tagName) || '';
@@ -560,11 +560,8 @@ document.addEventListener('keydown', e => {
     else if (e.key === 'Backspace' || e.key === 'Delete') done = tap(pad.querySelector('.key[data-k="back"]'));
     else if (e.key === ':') done = tap(pad.querySelector('.key[data-k=":"]'));
     else if (e.key === 'Tab' && cur.at === 'multi_number') { cur.field = (cur.field + (e.shiftKey ? cur.parts.length - 1 : 1)) % cur.parts.length; refresh(); done = true; }
-  } else if (/^[1-4]$/.test(e.key) || /^[a-dA-D]$/.test(e.key)) {
-    const i = /^[1-4]$/.test(e.key) ? +e.key - 1 : e.key.toUpperCase().charCodeAt(0) - 65;
-    done = tap(opts[i]);
   }
-  if (e.key === 'Enter') { const nx = document.getElementById('next'); if (nx && !nx.disabled) done = tap(nx); }
+  if (pad && e.key === 'Enter') { const nx = document.getElementById('next'); if (nx && !nx.disabled) done = tap(nx); }
   if (done) e.preventDefault();
 });
 
