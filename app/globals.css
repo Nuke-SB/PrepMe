@@ -189,3 +189,7 @@ h1{font-size:clamp(32px,6vw,46px)} h2{font-size:28px} p{margin:0}
 .cmp-more{margin-top:4px;font-size:14px}
 .cmp-table .tag{font-size:11px;padding:1px 6px}
 .qlink{font-size:12px;font-weight:700;color:#3B74D8;text-decoration:none;margin-left:6px;white-space:nowrap}.qlink:hover{text-decoration:underline}
+.dc-toggle{display:flex;gap:12px;align-items:flex-start;padding:14px 16px;border:2px solid var(--line);border-radius:16px;cursor:pointer;max-width:620px}
+.dc-toggle input{width:24px;height:24px;margin-top:2px;flex:none}
+.dc-toggle span{display:flex;flex-direction:column;gap:2px;font-size:18px}.dc-toggle small{font-size:15px;color:var(--muted)}
+.dc-box{background:#FFF8E6;border-color:#F2C96B}

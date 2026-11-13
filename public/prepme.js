@@ -380,6 +380,7 @@ function showWelcome(){
       <div class="grades" role="radiogroup" aria-labelledby="glabel">${[1,2,3,4].map(g=>`<button class="gbtn" role="radio" aria-checked="${g===grade}" data-g="${g}">Grade ${g}<small>${counts[g-1]} questions</small></button>`).join('')}</div></div>
     <div class="field"><span class="label" id="mlabel">Pick your level</span>
       <div class="grades medals" role="radiogroup" aria-labelledby="mlabel">${Object.entries(MEDALS).map(([k,M])=>`<button class="gbtn mbtn" role="radio" aria-checked="${k===medal}" data-m="${k}"><span aria-hidden="true" style="font-size:30px;line-height:1">${M.icon}</span>${M.name}<small>${M.blurb} · ${medalSubs(grade,k).length} questions</small></button>`).join('')}</div></div>
+    <label class="dc-toggle"><input type="checkbox" id="dcheck" ${doubleCheck?'checked':''}><span><b>Double-check my answers</b><small>Before each Next, you'll get a reminder to check your answer one more time.</small></span></label>
     <p class="muted">One question from each part of the grade's math. Try your best. If you don't know one, tap Skip. You'll see how you did at the end.</p>
     <div><button class="btn btn-primary" id="start">Let's start!</button></div>
     <p style="margin-top:6px"><button class="link" id="toAdmin">Admin page</button></p>`;
@@ -387,6 +388,7 @@ function showWelcome(){
   app.querySelectorAll('.gbtn[data-g]').forEach(b => b.onclick = () => { grade = +b.dataset.g; showWelcome(); });
   app.querySelectorAll('.mbtn').forEach(b => b.onclick = () => { medal = b.dataset.m; app.querySelectorAll('.mbtn').forEach(x => x.setAttribute('aria-checked', String(x === b))); });
   const kid = document.getElementById('kid'); kid.oninput = () => { kidName = kid.value.trim(); };
+  document.getElementById('dcheck').onchange = e => { doubleCheck = e.target.checked; };
   document.getElementById('start').onclick = () => { kidName = kid.value.trim(); adminMode = false; begin(pickTest()); };
   document.getElementById('toAdmin').onclick = e => { e.preventDefault(); showAdmin(); };
 }
@@ -637,9 +639,22 @@ function showQuestion(){
   wire(q);
   document.getElementById('prev').onclick = () => { const a = answerNow(); if (a !== '') answers[idx] = a; idx--; showQuestion(); };
   document.getElementById('skip').onclick = () => { answers[idx] = null; go(); };
-  document.getElementById('next').onclick = () => { answers[idx] = answerNow(); go(); };
+  document.getElementById('next').onclick = () => { if (doubleCheck && !previewId) return askDoubleCheck(); answers[idx] = answerNow(); go(); };
   document.getElementById('exit').onclick = confirmExit;
   window.scrollTo(0,0);
+}
+// ---------- double-check reminder (optional, chosen on the start page) ----------
+let doubleCheck = false;
+function askDoubleCheck(){
+  const z = document.getElementById('exitzone'), a = answerNow(), q = test[idx];
+  const shown = q.answer_type === 'multi_number' ? a.split('|').join(' and ') : a;
+  z.innerHTML = `<div class="confirm dc-box" role="alertdialog" aria-labelledby="dcmsg"><span id="dcmsg">🔍 <b>Quick double-check!</b> Read the question again. Is <b>${esc(shown)}</b>${q.params && q.params.unit && !q.answer_type.startsWith('choice') ? ' ' + esc(q.params.unit) : ''} your final answer?</span>
+    <span style="display:flex;gap:8px"><button class="btn btn-soft" id="dcagain">Let me check again</button><button class="btn btn-primary" id="dcyes">Yes, next →</button></span></div>`;
+  const back = () => { z.innerHTML = '<button class="link" id="exit">Exit test and see results</button>'; document.getElementById('exit').onclick = confirmExit; };
+  document.getElementById('dcagain').onclick = back;
+  document.getElementById('dcyes').onclick = () => { answers[idx] = answerNow(); go(); };
+  document.getElementById('dcagain').focus();
+  z.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
 }
 function go(){ idx++; idx < test.length ? showQuestion() : showResults(); }
 function confirmExit(){
