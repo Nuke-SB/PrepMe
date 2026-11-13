@@ -135,9 +135,9 @@ function hundred(p){
   return `<svg viewBox="0 0 ${10*cw} ${p.rows*ch}" width="${10*cw}" height="${p.rows*ch}" role="img" aria-label="Number chart">${o.join('')}</svg>`;
 }
 function tenFrame(p){
-  const s=52,o=[]; let left=p.filled;
-  for(let f=0;f<p.frames;f++){const ox=f*(5*s+24); const k=Math.min(10,left); left-=k;
-    for(let i=0;i<10;i++){const x=ox+(i%5)*s,y=Math.floor(i/5)*s;o.push(`<rect x="${x}" y="${y}" width="${s}" height="${s}" fill="#fff" stroke="${INK}" stroke-width="3"/>`); if(i<k)o.push(`<circle cx="${x+s/2}" cy="${y+s/2}" r="17" fill="${SKY}"/>`);}}
+  const s=52,o=[], f2=p.filled2||0, tot=p.filled+f2;   // filled = blue dots, filled2 = orange dots that come after them
+  for(let f=0;f<p.frames;f++){const ox=f*(5*s+24);
+    for(let i=0;i<10;i++){const x=ox+(i%5)*s,y=Math.floor(i/5)*s,n=f*10+i;o.push(`<rect x="${x}" y="${y}" width="${s}" height="${s}" fill="#fff" stroke="${INK}" stroke-width="3"/>`); if(n<tot)o.push(`<circle cx="${x+s/2}" cy="${y+s/2}" r="17" fill="${n<p.filled?SKY:'#F28C38'}"/>`);}}
   const W=p.frames*5*s+(p.frames-1)*24; return `<svg viewBox="-2 -2 ${W+4} ${2*s+4}" width="${W+4}" height="${2*s+4}" role="img" aria-label="Ten frame">${o.join('')}</svg>`;
 }
 function baseTen(p){
@@ -145,6 +145,10 @@ function baseTen(p){
   for(let h=0;h<H;h++){for(let r=0;r<10;r++)for(let c=0;c<10;c++)o.push(`<rect x="${x+c*u}" y="${r*u}" width="${u}" height="${u}" fill="#9CC3F0" stroke="${INK}" stroke-width="1"/>`); x+=10*u+10;}
   for(let t=0;t<p.tens;t++){for(let k=0;k<10;k++)o.push(`<rect x="${x}" y="${k*u}" width="${u}" height="${u}" fill="#7FB2EC" stroke="${INK}" stroke-width="1.5"/>`); x+=u+6;}
   x+=12; for(let k=0;k<p.ones;k++){const cx=x+(k%3)*(u+5),cy=10*u-u-(Math.floor(k/3))*(u+5);o.push(`<rect x="${cx}" y="${cy}" width="${u}" height="${u}" fill="#FFB98A" stroke="${INK}" stroke-width="1.5"/>`);}
+  if(p.plus){ x+=(p.ones?3*(u+5):0)+14; o.push(T(x+10,5*u+12,'+',`font-size="34" fill="${INK}"`)); x+=36;   // second number for addition
+    for(let t=0;t<p.plus.tens;t++){for(let k=0;k<10;k++)o.push(`<rect x="${x}" y="${k*u}" width="${u}" height="${u}" fill="#7FB2EC" stroke="${INK}" stroke-width="1.5"/>`); x+=u+6;}
+    x+=12; for(let k=0;k<p.plus.ones;k++){const cx=x+(k%3)*(u+5),cy=10*u-u-(Math.floor(k/3))*(u+5);o.push(`<rect x="${cx}" y="${cy}" width="${u}" height="${u}" fill="#FFB98A" stroke="${INK}" stroke-width="1.5"/>`);}
+    if(!p.plus.ones) x-=3*(u+5)-4; }
   const W=x+3*(u+5); return `<svg viewBox="-2 -2 ${W+4} ${10*u+4}" width="${W+4}" height="${10*u+4}" role="img" aria-label="Base ten blocks">${o.join('')}</svg>`;
 }
 function fraction(p, small){
@@ -400,14 +404,14 @@ const STRANDS = [
  ['Numbers & counting','Skip counting & number charts',['NC-03','NC-04','NC-05','G2-SC-01']],
  ['Numbers & counting','Even & odd',['NC-06','G2-SC-03']],
  ['Numbers & counting','Patterns',['NP-01','NP-02']],
- ['Place value','Place value (ones to millions)',['TB-01','TB-02','PV-01','PV-02','G2-PV-01','G3-PV-01']],
+ ['Place value','Place value (ones to millions)',['TB-01','TB-02','TB-03','PV-01','PV-02','G2-PV-01','G3-PV-01']],
  ['Place value','Expanded form',['PV-03','G2-PV-02','G4-PV-01']],
  ['Place value','10 and 100 more or less',['G2-PV-04']],
  ['Comparing & rounding','Comparing & ordering numbers',['CN-01','CN-02','G2-PV-03','G3-PV-03','G4-PV-02']],
  ['Comparing & rounding','Rounding',['PV-04','G2-PV-05','G3-PV-02','G4-PV-03']],
  ['Addition','Facts & mental addition',['AD-01','AD-02','AD-03','AD-04','AD-05','AD-06','G2-AD-01','G2-AD-03','G2-AD-08','G3-AD-01','G4-AD-01']],
  ['Addition','Missing addends',['G2-AD-02']],
- ['Addition','Adding in columns',['AD-07','G2-AD-04','G2-AD-05','G2-AD-06','G3-AD-02','G3-AD-03','G4-AD-02']],
+ ['Addition','Adding in columns',['AD-07','TB-04','G2-AD-04','G2-AD-05','G2-AD-06','G3-AD-02','G3-AD-03','G4-AD-02']],
  ['Subtraction','Facts & mental subtraction',['SB-01','SB-02','G2-SB-01','G2-SB-02','G2-SB-07','G3-SB-01','G4-SB-01']],
  ['Subtraction','Subtracting in columns',['SB-03','G2-SB-03','G2-SB-04','G3-SB-02','G3-SB-03','G4-SB-02']],
  ['Subtraction','Fact families & missing numbers',['SB-04','G2-SB-06','G2-SB-08']],
