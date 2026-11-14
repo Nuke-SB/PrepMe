@@ -402,9 +402,9 @@ function showWelcome(){
 let adminMode = false, adminTopic = '', adminSub = '', adminLevel = '';
 // ---------- strands: the same skill followed across grades (used by Admin > Compare grades) ----------
 const STRANDS = [
- ['Numbers & counting','Counting & number words',['NC-01','NC-02','G2-SC-02']],
+ ['Numbers & counting','Counting & number words',['NC-01','NC-02']],
  ['Numbers & counting','Skip counting & number charts',['NC-03','NC-04','NC-05','G2-SC-01']],
- ['Numbers & counting','Even & odd',['NC-06','G2-SC-03']],
+ ['Numbers & counting','Even & odd',['NC-06']],
  ['Numbers & counting','Patterns',['NP-01','NP-02']],
  ['Place value','Place value (ones to millions)',['TB-01','TB-02','TB-03','PV-01','PV-02','G2-PV-01','G3-PV-01']],
  ['Place value','Expanded form',['PV-03','G2-PV-02','G4-PV-01']],
