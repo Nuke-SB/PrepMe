@@ -88,6 +88,7 @@ function V(vt, p, small){
     case 'protractor': return protractorV(p);
     case 'shape3d': return shape3d(p.shape, small);
     case 'emoji_pic': return emojiPic(p, small);
+    case 'tally_marks': { const w=Math.floor(p.count/5)*64+(p.count%5)*12+24; return `<svg viewBox="0 0 ${w} 48" width="${w}" height="48" role="img" aria-label="Tally marks">${tallyMarks(p.count,14,24)}</svg>`; }
     case 'arrow': return arrow(p.direction);
     case 'flag': return flag(p.facing, small);
     case 'tally': return tally(p);
@@ -219,6 +220,7 @@ function poly(n,c,r,rot=-90){return [...Array(n).keys()].map(i=>{const a=(rot+i*
 function shapeInner(s,S,st){
   const c=S/2,r=S/2-8;
   if(s==='circle') return `<circle cx="${c}" cy="${c}" r="${r}" ${st}/>`;
+  if(s==='oval') return `<ellipse cx="${c}" cy="${c}" rx="${r}" ry="${r*.62}" ${st}/>`;
   if(s==='square') return `<rect x="${c-r*.75}" y="${c-r*.75}" width="${r*1.5}" height="${r*1.5}" ${st}/>`;
   if(s==='rectangle') return `<rect x="8" y="${c-r*.5}" width="${S-16}" height="${r}" ${st}/>`;
   if(s==='triangle') return `<polygon points="${poly(3,c,r)}" ${st}/>`;
@@ -443,7 +445,7 @@ const STRANDS = [
  ['Time','Elapsed time',['TM-03','G2-TM-03','G3-TM-02']],
  ['Time','Calendar',['TM-04','G2-TM-04','G3-TM-03','G3-TM-05']],
  ['Geometry','2D shapes & polygons',['GE-01','G2-GE-01','G3-GE-01','G3-GE-08','G4-GE-03']],
- ['Geometry','Symmetry, congruence & reflections',['GE-02','G2-GE-04','G3-GE-04','G3-GE-09','G4-GE-05']],
+ ['Geometry','Symmetry, congruence & reflections',['GE-02','GE-05','G2-GE-04','G3-GE-04','G3-GE-09','G4-GE-05']],
  ['Geometry','3D shapes & volume',['GE-03','GE-04','G2-GE-03','G4-GE-07']],
  ['Geometry','Area & perimeter',['G2-GE-02','G2-GE-05','G3-GE-02','G3-GE-05','G3-GE-06','G3-GE-07','G4-GE-04']],
  ['Geometry','Lines & angles',['G3-GE-03','G3-GE-10','G4-GE-01','G4-GE-02']],
@@ -624,7 +626,7 @@ function showQuestion(){
   if (q.answer_type==='multi_number') cur.parts = prev ? prev.split('|') : q.params.fields.map(()=> '');
   let input = '';
   if (q.answer_type==='choice_text'){
-    input = `<div class="opts ${q.options.length===3?'three':''}" role="group" aria-label="Answer choices">${q.options.map((o,i)=>`<button class="opt" id="opt${i}" aria-pressed="${prev===o}" data-v="${esc(o)}">${esc(o)}</button>`).join('')}</div>`;
+    input = `<div class="opts ${q.options.length===3?'three':''}" role="group" aria-label="Answer choices">${q.options.map((o,i)=>`<button class="opt${/^[^A-Za-z0-9]{1,8}$/u.test(String(o))?' emo':''}" id="opt${i}" aria-pressed="${prev===o}" data-v="${esc(o)}">${esc(o)}</button>`).join('')}</div>`;
   } else if (q.answer_type==='choice_picture'){
     input = `<div class="opts ${q.options.length===3?'three':''}" role="group" aria-label="Answer choices">${q.options.map((o,i)=>`<button class="opt" id="opt${i}" aria-pressed="${prev===o.id}" data-v="${o.id}">${V(o.visual_type,o.params,true)}<span class="letter">${o.id}</span></button>`).join('')}</div>`;
   } else if (q.answer_type==='multi_number'){

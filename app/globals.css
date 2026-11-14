@@ -53,6 +53,7 @@ h1{font-size:clamp(32px,6vw,46px)} h2{font-size:28px} p{margin:0}
 .opt[aria-pressed="true"]{border-color:var(--sky);background:var(--sky-soft)}
 .opt svg{max-width:100%;height:auto}
 .opt .letter{font-size:18px;color:var(--muted)}
+.opt.emo{font-size:44px;line-height:1}
 .answer-row{display:flex;justify-content:center;align-items:center;gap:10px;flex-wrap:wrap;font-weight:800;font-size:22px}
 .box{min-width:120px;height:72px;border:3px solid var(--line);border-radius:18px;font:800 38px var(--font-body);display:flex;align-items:center;justify-content:center;background:var(--card);cursor:pointer;padding:0 14px;font-variant-numeric:tabular-nums;color:var(--ink)}
 .box.small{min-width:88px}
