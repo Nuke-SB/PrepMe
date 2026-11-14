@@ -277,6 +277,8 @@ function barChart(p){const n=p.bars.length,step=p.step||1,W=Math.max(460,90+n*10
 function arrayV(p){ return `<div class="objs"><div class="grp" style="grid-template-columns:repeat(${p.cols},auto)">${Array(p.rows*p.cols).fill(`<span>${p.emoji||'🔵'}</span>`).join('')}</div></div>`; }
 function areaGrid(p){const c=40,o=[];const on=p.cells?new Set(p.cells.map(x=>x[0]+','+x[1])):null;
   for(let r=0;r<p.rows;r++)for(let k=0;k<p.cols;k++){const f=!on||on.has(r+','+k); if(f)o.push(`<rect x="${k*c+2}" y="${r*c+2}" width="${c}" height="${c}" fill="#BFD9F7" stroke="${INK}" stroke-width="2"/>`);}
+  (p.halves||[]).forEach(([r,k,d])=>{const x=k*c+2,y=r*c+2,P={bl:[[x,y],[x,y+c],[x+c,y+c]],br:[[x+c,y],[x+c,y+c],[x,y+c]],tl:[[x,y],[x+c,y],[x,y+c]],tr:[[x,y],[x+c,y],[x+c,y+c]]}[d];
+    o.push(`<rect x="${x}" y="${y}" width="${c}" height="${c}" fill="none" stroke="${INK}" stroke-width="1" stroke-dasharray="4 4"/><polygon points="${P.map(q=>q.join(',')).join(' ')}" fill="#BFD9F7" stroke="${INK}" stroke-width="2"/>`);});
   return `<svg viewBox="0 0 ${p.cols*c+4} ${p.rows*c+4}" width="${p.cols*c+4}" height="${p.rows*c+4}" role="img" aria-label="Grid of squares">${o.join('')}</svg>`;}
 function rectV(p){const sc=Math.min(320/p.w,170/p.h),w=p.w*sc,h=p.h*sc,W=w+120,H=h+70;
   return `<svg viewBox="0 0 ${W} ${H}" width="${W}" height="${H}" role="img" aria-label="Rectangle"><rect x="20" y="10" width="${w}" height="${h}" fill="#BFD9F7" stroke="${INK}" stroke-width="4"/>${T(20+w/2,h+42,`${p.w} ${p.unit}`,`font-size="20" fill="${INK}"`)}${T(w+62,10+h/2+7,`${p.h} ${p.unit}`,`font-size="20" fill="${INK}"`)}</svg>`;}
@@ -451,7 +453,7 @@ const STRANDS = [
  ['Money','Coins, bills & counting money',['MO-01','MO-02','G2-MO-01','G2-MO-02','G2-MO-05','G3-MO-01','G3-MO-03']],
  ['Money','Making change',['G3-MO-02']],
  ['Time','Telling time',['TM-01','TM-02','G2-TM-01','G2-TM-02','G3-TM-01','G3-TM-04']],
- ['Time','Elapsed time',['TM-03','G2-TM-03','G3-TM-02']],
+ ['Time','Elapsed time',['TM-03','G2-TM-03','G2-TM-05','G3-TM-02']],
  ['Time','Calendar',['TM-04','G2-TM-04','G3-TM-03','G3-TM-05']],
  ['Geometry','2D shapes & polygons',['GE-01','G2-GE-01','G3-GE-01','G3-GE-08','G4-GE-03']],
  ['Geometry','Symmetry, congruence & reflections',['GE-02','GE-05','G2-GE-04','G3-GE-04','G3-GE-09','G4-GE-05']],
@@ -464,8 +466,8 @@ const STRANDS = [
  ['Data & graphing','Line plots & stem-and-leaf',['G2-DG-03','G3-DG-03','G4-DG-01','G4-DG-02']],
  ['Data & graphing','Venn, circle & line graphs',['G2-DG-05','G2-DG-06','G2-DG-07','G3-DG-05','G3-DG-06','G3-DG-07']],
  ['Data & graphing','Probability',['G4-DG-03']],
- ['Word problems','One-step add & subtract',['AD-08','SB-05','WP-01','G2-AD-07','G2-SB-05','G2-WP-02','G3-WP-03']],
- ['Word problems','Two-step & multi-step',['G2-WP-01','G3-WP-02','G4-WP-01']],
+ ['Word problems','One-step add & subtract',['AD-08','SB-05','WP-01','G2-AD-07','G2-SB-05','G3-WP-03']],
+ ['Word problems','Two-step & multi-step',['G3-WP-02','G4-WP-01']],
  ['Word problems','Multiply & divide stories',['G3-WP-01','G4-WP-02']],
  ['Word problems','Fraction, decimal & estimation stories',['FR-03','G4-WP-03','G4-WP-04']],
  ['Word problems','Measurement, money & time stories',['ME-04','MO-03','TM-05','G2-MO-03','G4-ME-04']],
