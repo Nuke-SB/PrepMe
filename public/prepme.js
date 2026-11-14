@@ -397,6 +397,7 @@ function showWelcome(){
   document.getElementById('dcheck').onchange = e => { doubleCheck = e.target.checked; };
   document.getElementById('start').onclick = () => { kidName = kid.value.trim(); adminMode = false; begin(pickTest()); };
   document.getElementById('toAdmin').onclick = e => { e.preventDefault(); showAdmin(); };
+  saveState('welcome');
 }
 // ---------- Admin page: same screen, plus optional Category and Subcategory ----------
 let adminMode = false, adminTopic = '', adminSub = '', adminLevel = '';
@@ -527,6 +528,7 @@ function showCompare(){
   document.getElementById('ctopic').onchange = e => { cmpTopic = e.target.value; cmpStrand = ''; showCompare(); };
   document.getElementById('cstrand').onchange = e => { cmpStrand = e.target.value; showCompare(); };
   app.querySelectorAll('.cmp-more').forEach(b => b.onclick = () => { const k = b.dataset.k; cmpOpen.has(k) ? cmpOpen.delete(k) : cmpOpen.add(k); showCompare(); });
+  saveState('compare');
 }
 
 function adminPool(){
@@ -564,6 +566,7 @@ function showAdmin(){
   document.getElementById('toKid').onclick = e => { e.preventDefault(); adminMode = false; showWelcome(); };
   document.getElementById('review').onclick = showReview;
   bindTabs();
+  saveState('admin');
 }
 // ---------- admin review page: a table, one row per question slot, Level 1 / 2 / 3 side by side ----------
 function showReview(){
@@ -611,6 +614,7 @@ function showReview(){
   document.getElementById('rlevel').onchange = e => { adminLevel = e.target.value; showReview(); };
   document.getElementById('rtopic').onchange = e => { adminTopic = e.target.value; adminSub = ''; showReview(); };
   document.getElementById('rsub').onchange = e => { adminSub = e.target.value; if (adminSub) adminTopic = inGrade.find(q => q.skill_id === adminSub).topic; showReview(); };
+  saveState('review');
 }
 function renderProgress(){
   prog.hidden = false;
@@ -648,6 +652,7 @@ function showQuestion(){
   document.getElementById('next').onclick = () => { if (doubleCheck && !previewId) return askDoubleCheck(); answers[idx] = answerNow(); go(); };
   document.getElementById('exit').onclick = confirmExit;
   window.scrollTo(0,0);
+  saveState('test');
 }
 // ---------- double-check reminder (optional, chosen on the start page) ----------
 let doubleCheck = false;
@@ -682,7 +687,7 @@ function refresh(){
 }
 function wire(q){
   if (cur.at.startsWith('choice')){
-    app.querySelectorAll('.opt').forEach(b=>b.onclick=()=>{ app.querySelectorAll('.opt').forEach(x=>x.setAttribute('aria-pressed','false')); b.setAttribute('aria-pressed','true'); cur.value=b.dataset.v; refresh(); });
+    app.querySelectorAll('.opt').forEach(b=>b.onclick=()=>{ app.querySelectorAll('.opt').forEach(x=>x.setAttribute('aria-pressed','false')); b.setAttribute('aria-pressed','true'); cur.value=b.dataset.v; refresh(); if (!previewId) { const keep = answers[idx]; answers[idx] = cur.value; saveState('test'); answers[idx] = keep; } });
     refresh(); return;
   }
   if (cur.at==='multi_number') cur.parts.forEach((_,i)=>document.getElementById('f'+i).onclick=()=>{cur.field=i; refresh();});
@@ -706,9 +711,39 @@ function route(){
     const q = BANK.find(x => x.q_id === decodeURIComponent(m[1]));
     if (q) { previewId = q.q_id; adminMode = true; grade = q.grade; kidName = ''; begin([q]); return; }
   }
+  if (restoreState()) return;
   location.hash === '#admin' ? showAdmin() : showWelcome();
 }
 let previewId = null;
+// ---------- stay on the same page after a refresh (this browser tab only; closing the tab starts fresh) ----------
+const SKEY = 'prepme-state-v1';
+function saveState(screen){
+  if (previewId) return;
+  try {
+    const withTest = screen === 'test' || screen === 'results';
+    sessionStorage.setItem(SKEY, JSON.stringify({ screen, grade, medal, kidName, doubleCheck, adminMode, adminTab, adminTopic, adminSub, adminLevel,
+      cmpGrades, cmpLevel, cmpTopic, cmpStrand, cmpFlagged, onlyMissed, idx, reached, exitedAt,
+      answers: withTest ? answers.map(a => a === undefined ? { u: 1 } : a) : [],
+      test: withTest ? test.map(q => ({ id: q.q_id, o: q.options })) : null }));
+  } catch (e) { /* storage blocked: refresh just goes back to the start page */ }
+}
+function restoreState(){
+  let s; try { s = JSON.parse(sessionStorage.getItem(SKEY) || 'null'); } catch (e) { return false; }
+  if (!s || !s.screen) return false;
+  ({ grade, medal, kidName, doubleCheck, adminMode, adminTab, adminTopic, adminSub, adminLevel, cmpLevel, cmpTopic, cmpStrand, cmpFlagged, onlyMissed } = s);
+  cmpGrades = s.cmpGrades && s.cmpGrades.length ? s.cmpGrades : cmpGrades;
+  if (!MEDALS[medal]) medal = 'silver';
+  if (s.test) {
+    const byId = new Map(BANK.map(q => [q.q_id, q]));
+    const t = s.test.map(x => { const q = byId.get(x.id); return q && { ...q, options: x.o != null ? x.o : q.options }; });
+    if (!t.length || t.some(x => !x)) { showWelcome(); return true; }     // the bank changed since: start fresh
+    test = t; idx = Math.min(s.idx || 0, t.length - 1); reached = s.reached || 0; exitedAt = s.exitedAt;
+    answers = s.answers.map(a => a && typeof a === 'object' && a.u ? undefined : a);
+  }
+  const go_ = { test: showQuestion, results: showResults, review: showReview, compare: () => { adminTab = 'grades'; showCompare(); }, admin: showAdmin, welcome: showWelcome }[s.screen];
+  if (!go_ || ((s.screen === 'test' || s.screen === 'results') && !s.test)) { showWelcome(); return true; }
+  go_(); return true;
+}
 const previewLink = id => `<a class="qlink" href="#q=${encodeURIComponent(id)}" target="_blank" rel="noopener" title="Open this question as the kid sees it (new tab)">Open ↗</a>`;
 // ---------- keyboard during a math test: only 0-9 and Backspace (plus ':' on time questions) ----------
 // Every other key is ignored. Enter and Space are blocked so they can't "click" a focused button such as Exit.
@@ -751,6 +786,7 @@ function showResults(){
   document.getElementById('filter').onclick = () => { onlyMissed = !onlyMissed; showResults(); };
   document.getElementById('pdf').onclick = () => downloadPdf();
   window.scrollTo(0,0);
+  saveState('results');
 }
 // ---------- PDF: the browser's print window saves the results page as a PDF (text stays sharp, page breaks between questions) ----------
 function downloadPdf(){
