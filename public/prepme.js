@@ -184,10 +184,18 @@ function ruler(p){
     for(let k=0;k<=n*4;k++){const x=14+k*u/4,L=k%4===0?24:k%2===0?16:10;o+=`<line x1="${x}" y1="44" x2="${x}" y2="${44+L}" stroke="${INK}" stroke-width="${k%4?1.5:2.5}"/>`; if(k%4===0)o+=T(x,88,k/4,`font-size="16" fill="${INK}"`);}
     o+=T(W-40,24,'inches',`font-size="15" fill="#5D6B85"`);
     return `<svg viewBox="0 0 ${W} 100" width="${W}" height="100" role="img" aria-label="Ruler in quarter inches">${o}</svg>`; }
-  const u=56,W=10*u+20; let o=`<rect x="10" y="6" width="${p.length*u}" height="28" rx="6" fill="#8BD3A8" stroke="${INK}" stroke-width="2"/><rect x="10" y="44" width="${10*u}" height="46" fill="#FFF4D6" stroke="${INK}" stroke-width="2"/>`;
-  for(let i=0;i<=10;i++){o+=`<line x1="${10+i*u}" y1="44" x2="${10+i*u}" y2="64" stroke="${INK}" stroke-width="2"/>`+T(10+i*u,84,i,`font-size="16" fill="${INK}"`); if(i<10)o+=`<line x1="${10+i*u+u/2}" y1="44" x2="${10+i*u+u/2}" y2="56" stroke="${INK}" stroke-width="1.5"/>`;}
-  o+=T(W-30,22,p.unit==='cm'?'cm':'inches',`font-size="15" fill="#5D6B85"`);
-  return `<svg viewBox="0 0 ${W} 96" width="${W}" height="96" role="img" aria-label="Ruler">${o}</svg>`;
+  // one bar (optionally not starting at 0), or several labelled bars over the same ruler (p.bars = [{start, length, label}])
+  const u=56,L=30,W=10*u+L+20, bars = p.bars || [{ start: p.start || 0, length: p.length }], cols = ['#8BD3A8', '#FFC27A', '#9CC4F0'];
+  const top = 6, rh = 34, ry = top + bars.length * rh + 4;
+  let o = '';
+  bars.forEach((bb, k) => { o += `<rect x="${L + (bb.start||0)*u}" y="${top + k*rh}" width="${bb.length*u}" height="26" rx="6" fill="${cols[k % 3]}" stroke="${INK}" stroke-width="2"/>`;
+    if (bb.label) o += T(14, top + k*rh + 19, esc(bb.label), `font-size="16" fill="${INK}"`); });
+  o += `<rect x="${L}" y="${ry}" width="${10*u}" height="46" fill="#FFF4D6" stroke="${INK}" stroke-width="2"/>`;
+  for(let i=0;i<=10;i++){o+=`<line x1="${L+i*u}" y1="${ry}" x2="${L+i*u}" y2="${ry+20}" stroke="${INK}" stroke-width="2"/>`+T(L+i*u,ry+40,i,`font-size="16" fill="${INK}"`); if(i<10)o+=`<line x1="${L+i*u+u/2}" y1="${ry}" x2="${L+i*u+u/2}" y2="${ry+12}" stroke="${INK}" stroke-width="1.5"/>`;}
+  if (bars.length === 1 && (bars[0].start||0) > 0) o += `<line x1="${L+bars[0].start*u}" y1="${top+26}" x2="${L+bars[0].start*u}" y2="${ry}" stroke="${INK}" stroke-width="1.5" stroke-dasharray="4 3"/><line x1="${L+(bars[0].start+bars[0].length)*u}" y1="${top+26}" x2="${L+(bars[0].start+bars[0].length)*u}" y2="${ry}" stroke="${INK}" stroke-width="1.5" stroke-dasharray="4 3"/>`;
+  o+=T(W-30,ry-6,p.unit==='cm'?'cm':'inches',`font-size="15" fill="#5D6B85"`);
+  const H = ry + 52;
+  return `<svg viewBox="0 0 ${W} ${H}" width="${W}" height="${H}" role="img" aria-label="Ruler">${o}</svg>`;
 }
 const COINS={1:{r:30,f:'#C9824E',e:'#8A5230',t:'ONE CENT',n:'penny'},5:{r:34,f:'#C8CDD3',e:'#6B7480',t:'FIVE CENTS',n:'nickel'},
   10:{r:27,f:'#D7DBE0',e:'#6B7480',t:'ONE DIME',n:'dime'},25:{r:40,f:'#CDD2D8',e:'#6B7480',t:'QUARTER',n:'quarter'}};
@@ -437,7 +445,7 @@ const STRANDS = [
  ['Decimals','Decimals & fractions',['G3-FR-06','G4-DC-01']],
  ['Decimals','Comparing decimals',['G3-FR-10','G4-DC-02']],
  ['Decimals','Adding & subtracting decimals',['G3-FR-11','G4-DC-03']],
- ['Measurement','Length',['ME-01','G2-ME-01','G2-ME-02','G2-ME-03','G2-ME-04','G2-ME-05','G3-ME-02','G3-ME-03','G4-ME-01']],
+ ['Measurement','Length',['ME-01','G2-ME-01','G2-ME-02','G2-ME-03','G2-ME-05','G3-ME-02','G3-ME-03','G4-ME-01']],
  ['Measurement','Weight & capacity',['ME-02','ME-03','G2-ME-06','G2-ME-07','G3-ME-01','G3-ME-04','G3-ME-05','G4-ME-02','G4-ME-03']],
  ['Measurement','Temperature',['G2-ME-08','G3-ME-06']],
  ['Money','Coins, bills & counting money',['MO-01','MO-02','G2-MO-01','G2-MO-02','G2-MO-04','G2-MO-05','G3-MO-01','G3-MO-03']],
