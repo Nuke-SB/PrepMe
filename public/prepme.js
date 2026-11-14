@@ -448,7 +448,7 @@ const STRANDS = [
  ['Measurement','Length',['ME-01','G2-ME-01','G2-ME-02','G2-ME-03','G2-ME-05','G3-ME-02','G3-ME-03','G4-ME-01']],
  ['Measurement','Weight & capacity',['ME-02','ME-03','G2-ME-06','G2-ME-07','G3-ME-01','G3-ME-04','G3-ME-05','G4-ME-02','G4-ME-03']],
  ['Measurement','Temperature',['G2-ME-08','G3-ME-06']],
- ['Money','Coins, bills & counting money',['MO-01','MO-02','G2-MO-01','G2-MO-02','G2-MO-04','G2-MO-05','G3-MO-01','G3-MO-03']],
+ ['Money','Coins, bills & counting money',['MO-01','MO-02','G2-MO-01','G2-MO-02','G2-MO-05','G3-MO-01','G3-MO-03']],
  ['Money','Making change',['G3-MO-02']],
  ['Time','Telling time',['TM-01','TM-02','G2-TM-01','G2-TM-02','G3-TM-01','G3-TM-04']],
  ['Time','Elapsed time',['TM-03','G2-TM-03','G3-TM-02']],
