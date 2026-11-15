@@ -397,8 +397,8 @@ function emojiPic(p, small){const S=small?110:170, f=p.flip==='h'?'scale(-1 1)':
 
 function colNums(p){const f=n=>Number(n).toLocaleString('en-US');const ns=p.nums;
   return `<div class="colsum">${ns.map((n,i)=>`<span>${i===ns.length-1?p.op+' ':''}${f(n)}</span>`).join('')}<span class="ln"></span></div>`;}
-function longDiv(p){const f=n=>String(n),w=String(f(p.dividend)).length*30+30;
-  return `<svg viewBox="0 0 ${w+90} 110" width="${w+90}" height="110" role="img" aria-label="Long division"><text x="40" y="78" text-anchor="end" font-family="Courier New,monospace" font-weight="700" font-size="48" fill="${INK}">${p.divisor}</text><path d="M52,30 Q66,60 52,92" fill="none" stroke="${INK}" stroke-width="4"/><line x1="52" y1="30" x2="${w+80}" y2="30" stroke="${INK}" stroke-width="4"/><text x="64" y="78" font-family="Courier New,monospace" font-weight="700" font-size="48" fill="${INK}">${f(p.dividend)}</text></svg>`;}
+function longDiv(p){const fs=34,cw=21,dv=String(p.divisor),dd=String(p.dividend),L=16+dv.length*cw,W=L+30+dd.length*cw+24,H=84;
+  return `<svg viewBox="0 0 ${W} ${H}" width="${W}" height="${H}" style="max-width:${W}px;height:auto" role="img" aria-label="Long division: ${dd} divided by ${dv}"><text x="${L}" y="58" text-anchor="end" font-family="Courier New,monospace" font-weight="700" font-size="${fs}" fill="${INK}">${dv}</text><path d="M${L+8},20 Q${L+19},44 ${L+8},70" fill="none" stroke="${INK}" stroke-width="3"/><line x1="${L+8}" y1="20" x2="${W-6}" y2="20" stroke="${INK}" stroke-width="3"/><text x="${L+20}" y="58" font-family="Courier New,monospace" font-weight="700" font-size="${fs}" fill="${INK}">${dd}</text></svg>`;}
 function polyV(p){const W=380,H=270,a=(p.rotate||0)*Math.PI/180;
   let pts=p.pts.map(([x,y])=>[x*Math.cos(a)-y*Math.sin(a),x*Math.sin(a)+y*Math.cos(a)]);
   const xs=pts.map(q=>q[0]),ys=pts.map(q=>q[1]),mnx=Math.min(...xs),mxx=Math.max(...xs),mny=Math.min(...ys),mxy=Math.max(...ys),s=Math.min((W-110)/(mxx-mnx||1),(H-80)/(mxy-mny||1));
