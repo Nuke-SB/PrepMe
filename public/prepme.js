@@ -102,6 +102,9 @@ function V(vt, p, small){
     case 'angle': return angleV(p);
     case 'lines': return linesV(p);
     case 'symmetry': return symmetryV(p);
+    case 'double_bar': return doubleBarV(p);
+    case 'double_line': return doubleLineV(p);
+    case 'net': return netV(p, small);
     case 'angle_pair': return anglePairV(p);
     case 'pictograph2': return `<div style="display:flex;flex-direction:column;gap:14px;align-items:center">${pictograph(p.a)}${pictograph(p.b)}</div>`;
     case 'venn3': return venn3V(p);
@@ -362,6 +365,28 @@ function venn3V(p){const R=p.regions,W=520,H=440,c=[[200,170],[320,170],[260,275
 function factorTreeV(p){const W=440,H=260;let o='';const box=(x,y,t)=>`<rect x="${x-30}" y="${y-22}" width="60" height="40" rx="10" fill="${t==='?'?'#FFF1E6':'#fff'}" stroke="${t==='?'?ACC:INK}" stroke-width="3"/>`+T(x,y+8,t,`font-size="22" fill="${t==='?'?ACC:INK}"`);
   const walk=(n,x,y,dx)=>{if(n.k){n.k.forEach((ch,j)=>{const nx=x+(j?dx:-dx),ny=y+90;o+=`<line x1="${x}" y1="${y+18}" x2="${nx}" y2="${ny-22}" stroke="${INK}" stroke-width="2.5"/>`;walk(ch,nx,ny,dx/2);});}o+=box(x,y,String(n.n));};
   walk(p.tree,W/2,30,110);return `<svg viewBox="0 0 ${W} ${H}" width="${W}" height="${H}" role="img" aria-label="Factor tree">${o}</svg>`;}
+const DCOL=['#FF9F66','#7FB2EC'];
+function dKey(p,W){return p.series.map((sr,k)=>`<rect x="${W-190+k*95}" y="40" width="16" height="16" fill="${DCOL[k]}" stroke="${INK}" stroke-width="1.5"/>`+T(W-140+k*95,53,esc(sr.name),`font-size="13" fill="${INK}"`)).join('');}
+function doubleBarV(p){const n=p.labels.length,W=Math.max(520,100+n*95),H=350,l=56,b=290,top=70,u=(b-top)/p.max,gw=(W-l-30)/n,bw=Math.min(30,gw/2-8);let o=T(W/2,24,esc(p.title),`font-size="19" fill="${INK}"`)+dKey(p,W);
+  for(let v=0;v<=p.max;v+=p.step){const y=b-v*u;o+=`<line x1="${l}" y1="${y}" x2="${W-10}" y2="${y}" stroke="${v?LINE:INK}" stroke-width="${v?1:3}"/>`+T(l-22,y+5,v,`font-size="13" fill="${INK}"`);}
+  p.labels.forEach((lb,i)=>{const x0=l+i*gw+gw/2-bw;p.series.forEach((sr,k)=>{const h=sr.values[i]*u;o+=`<rect x="${x0+k*bw}" y="${b-h}" width="${bw}" height="${h}" fill="${DCOL[k]}" stroke="${INK}" stroke-width="1.5"/>`;});o+=T(l+i*gw+gw/2,b+24,esc(lb),`font-size="14" fill="${INK}"`);});
+  return `<svg viewBox="0 0 ${W} ${H}" width="${W}" height="${H}" role="img" aria-label="Double bar graph">${o}</svg>`;}
+function doubleLineV(p){const n=p.labels.length,W=560,H=350,l=56,b=290,top=70,u=(b-top)/p.max,dx=(W-l-60)/(n-1);let o=T(W/2,24,esc(p.title),`font-size="19" fill="${INK}"`)+dKey(p,W);
+  for(let v=0;v<=p.max;v+=p.step){const y=b-v*u;o+=`<line x1="${l}" y1="${y}" x2="${W-20}" y2="${y}" stroke="${v?LINE:INK}" stroke-width="${v?1:3}"/>`+T(l-22,y+5,v,`font-size="13" fill="${INK}"`);}
+  p.series.forEach((sr,k)=>{const P=sr.values.map((v,i)=>[l+20+i*dx,b-v*u]);o+=`<polyline points="${P.map(x=>x.join(',')).join(' ')}" fill="none" stroke="${DCOL[k]}" stroke-width="4" ${k?'stroke-dasharray="10 6"':''}/>`;
+    P.forEach(([x,y])=>o+=k?`<rect x="${x-6}" y="${y-6}" width="12" height="12" fill="${DCOL[k]}" stroke="${INK}" stroke-width="1.5"/>`:`<circle cx="${x}" cy="${y}" r="6" fill="${DCOL[k]}" stroke="${INK}" stroke-width="1.5"/>`);});
+  p.labels.forEach((lb,i)=>o+=T(l+20+i*dx,b+24,esc(lb),`font-size="14" fill="${INK}"`));
+  return `<svg viewBox="0 0 ${W} ${H}" width="${W}" height="${H}" role="img" aria-label="Double line graph">${o}</svg>`;}
+function netV(p, small){const u=small?32:44;let o='',W,H;const sq=(c,r,w,h)=>`<rect x="${10+c*u}" y="${10+r*u}" width="${(w||1)*u}" height="${(h||1)*u}" fill="#BFD9F7" stroke="${INK}" stroke-width="2.5"/>`;
+  const tri=(pts)=>`<polygon points="${pts.map(([x,y])=>`${10+x*u},${10+y*u}`).join(' ')}" fill="#BFD9F7" stroke="${INK}" stroke-width="2.5"/>`;
+  const cells=p.kind==='cells'?p.cells:p.kind==='cube'?[[0,1],[1,0],[1,1],[1,2],[1,3],[2,1]]:null;
+  if(cells){cells.forEach(([r,c])=>o+=sq(c,r));W=20+u*(1+Math.max(...cells.map(x=>x[1])));H=20+u*(1+Math.max(...cells.map(x=>x[0])));}
+  else if(p.kind==='rectangular prism'){o+=sq(0,1,1,1.5)+sq(1,1,2,1.5)+sq(3,1,1,1.5)+sq(4,1,2,1.5)+sq(1,0,2,1)+sq(1,2.5,2,1);W=20+6*u;H=20+3.5*u;}
+  else if(p.kind==='triangular prism'){o+=sq(1,1,1.5,1)+sq(1,2,1.5,1)+sq(1,3,1.5,1)+tri([[1,1],[1,2],[0.1,1.5]])+tri([[2.5,1],[2.5,2],[3.4,1.5]]);W=20+3.6*u;H=20+4.2*u;o=o.replace(/height="0"/g,'');}
+  else if(p.kind==='square pyramid'){o+=sq(1,1)+tri([[1,1],[2,1],[1.5,0]])+tri([[1,2],[2,2],[1.5,3]])+tri([[1,1],[1,2],[0,1.5]])+tri([[2,1],[2,2],[3,1.5]]);W=20+3*u;H=20+3*u;}
+  else if(p.kind==='triangular pyramid'){o+=tri([[0,2],[2,2],[1,0.27]])+tri([[2,2],[4,2],[3,0.27]])+tri([[1,0.27],[3,0.27],[2,2]])+tri([[0,2],[4,2],[2,3.73]]).replace(/.*/,'')+tri([[0,2],[2,2],[1,3.73]]);W=20+4*u;H=20+3.8*u;}
+  else if(p.kind==='cylinder'){o+=sq(0.6,1.2,3,1.6)+`<circle cx="${10+2.1*u}" cy="${10+0.6*u}" r="${0.6*u}" fill="#BFD9F7" stroke="${INK}" stroke-width="2.5"/><circle cx="${10+2.1*u}" cy="${10+3.4*u}" r="${0.6*u}" fill="#BFD9F7" stroke="${INK}" stroke-width="2.5"/>`;W=20+4.2*u;H=20+4*u;}
+  return `<svg viewBox="0 0 ${W} ${H}" width="${W}" height="${H}" role="img" aria-label="Net of a solid">${o}</svg>`;}
 function symmetryV(p){const S=180,c=S/2,st=`fill="#BFD9F7" stroke="${INK}" stroke-width="4" stroke-linejoin="round"`;
   const ln=p.line==='vertical'?`<line x1="${c}" y1="0" x2="${c}" y2="${S}"/>`:p.line==='horizontal'?`<line x1="0" y1="${c}" x2="${S}" y2="${c}"/>`:
     (p.shape==='rectangle'?`<line x1="8" y1="${c-41}" x2="${S-8}" y2="${c+41}"/>`:`<line x1="${c-62}" y1="${c-62}" x2="${c+62}" y2="${c+62}"/>`);
@@ -385,6 +410,9 @@ function polyV(p){const W=380,H=270,a=(p.rotate||0)*Math.PI/180;
     o+=`<polyline points="${x0+ux},${y0+uy} ${x0+ux+vx},${y0+uy+vy} ${x0+vx},${y0+vy}" fill="none" stroke="${INK}" stroke-width="2.5"/>`;});
   (p.labels||[]).forEach((l,k)=>{const [x1,y1]=P[k],[x2,y2]=P[(k+1)%P.length];const mx=(x1+x2)/2,my=(y1+y2)/2,L=Math.hypot(x2-x1,y2-y1)||1;let nx=(y2-y1)/L,ny=-(x2-x1)/L;
     if(inside(mx+nx*4,my+ny*4)){nx=-nx;ny=-ny;} const d=Math.abs(nx)>0.7?30:16;o+=T(mx+nx*d,my+ny*d+6,esc(l),`font-size="17" fill="${INK}"`);});
+  if(p.height){const tf=([x,y])=>{const rx=x*Math.cos(a)-y*Math.sin(a),ry=x*Math.sin(a)+y*Math.cos(a);return [ox+(rx-mnx)*s,H-oy-(ry-mny)*s];};const [h1,h2]=p.height.map(tf);
+    o+=`<line x1="${h1[0]}" y1="${h1[1]}" x2="${h2[0]}" y2="${h2[1]}" stroke="${ACC}" stroke-width="3" stroke-dasharray="7 5"/><polyline points="${h1[0]+12},${h1[1]} ${h1[0]+12},${h1[1]-12} ${h1[0]},${h1[1]-12}" fill="none" stroke="${ACC}" stroke-width="2"/>`;
+    if(p.hlabel)o+=T(h1[0]+14+String(p.hlabel).length*4.2,(h1[1]+h2[1])/2+6,esc(p.hlabel),`font-size="16" fill="${ACC}"`);}
   if(p.right_angle!=null){const k=p.right_angle,[x,y]=P[k],[ax,ay]=P[(k+1)%P.length],[bx,by]=P[(k+P.length-1)%P.length];const u=(qx,qy)=>{const d=Math.hypot(qx-x,qy-y);return [(qx-x)/d*16,(qy-y)/d*16]};const [ux,uy]=u(ax,ay),[vx,vy]=u(bx,by);o+=`<path d="M${x+ux},${y+uy} L${x+ux+vx},${y+uy+vy} L${x+vx},${y+vy}" fill="none" stroke="${INK}" stroke-width="2"/>`;}
   return `<svg viewBox="0 0 ${W} ${H}" width="${W}" height="${H}" role="img" aria-label="Shape">${o}</svg>`;}
 function coordV(p){const m=p.max,u=30,L=40,B=40+m*u,W=L+m*u+30;let o='';
@@ -457,12 +485,12 @@ const visualOf = (q, small) => q.visual_type && q.visual_type !== 'none' && q.vi
 // ---------- screens ----------
 function showWelcome(){
   prog.hidden = true; adminMode = false; app.classList.remove('wide');
-  const counts = [1,2,3,4].map(g => medalSubs(g, medal).length);
+  const counts = [1,2,3,4,5].map(g => medalSubs(g, medal).length);
   app.innerHTML = `<div style="font-size:60px;line-height:1" aria-hidden="true">🧮</div>
     <h1>Hi there! Ready for your math challenge?</h1>
     <div class="field"><label for="kid">What's your name?</label><input id="kid" class="namebox" maxlength="20" autocomplete="off" placeholder="Type your name" value="${esc(kidName)}"></div>
     <div class="field"><span class="label" id="glabel">Which grade are you in?</span>
-      <div class="grades" role="radiogroup" aria-labelledby="glabel">${[1,2,3,4].map(g=>`<button class="gbtn" role="radio" aria-checked="${g===grade}" data-g="${g}">Grade ${g}<small>${counts[g-1]} questions</small></button>`).join('')}</div></div>
+      <div class="grades" role="radiogroup" aria-labelledby="glabel">${[1,2,3,4,5].map(g=>`<button class="gbtn" role="radio" aria-checked="${g===grade}" data-g="${g}">Grade ${g}<small>${counts[g-1]} questions</small></button>`).join('')}</div></div>
     <div class="field"><span class="label" id="mlabel">Pick your level</span>
       <div class="grades medals" role="radiogroup" aria-labelledby="mlabel">${Object.entries(MEDALS).map(([k,M])=>`<button class="gbtn mbtn" role="radio" aria-checked="${k===medal}" data-m="${k}"><span aria-hidden="true" style="font-size:30px;line-height:1">${M.icon}</span>${M.name}<small>${M.blurb} · ${medalSubs(grade,k).length} questions</small></button>`).join('')}</div></div>
     <label class="dc-toggle"><input type="checkbox" id="dcheck" ${doubleCheck?'checked':''}><span><b>Double-check my answers</b><small>Before each Next, you'll get a reminder to check your answer one more time.</small></span></label>
@@ -486,63 +514,68 @@ const STRANDS = [
  ['Numbers & counting','Skip counting & number charts',['NC-03','NC-04','NC-05','G2-SC-01','G2-SC-02','G3-PV-05']],
  ['Numbers & counting','Even & odd',['NC-06']],
  ['Numbers & counting','Patterns',['NP-01','NP-02']],
- ['Place value','Place value (ones to millions)',['TB-01','TB-02','TB-03','PV-01','PV-02','G2-PV-01','G3-PV-01','G4-PV-01']],
+ ['Place value','Place value (ones to millions)',['TB-01','TB-02','TB-03','PV-01','PV-02','G2-PV-01','G3-PV-01','G4-PV-01','G5-PV-01','G5-PV-02']],
  ['Place value','Expanded form',['PV-03','G2-PV-02','G3-PV-04','G4-PV-04']],
- ['Comparing & rounding','Comparing & ordering numbers',['CN-01','CN-02','G2-PV-03','G3-PV-03','G4-PV-02']],
- ['Comparing & rounding','Rounding',['PV-04','G2-PV-04','G3-PV-02','G4-PV-03']],
- ['Addition','Facts & mental addition',['AD-01','AD-02','AD-03','AD-04','AD-05','AD-06','G2-AD-01','G2-AD-03','G2-AD-08','G3-AD-01','G3-AD-04','G4-AD-01']],
+ ['Comparing & rounding','Comparing & ordering numbers',['CN-01','CN-02','G2-PV-03','G3-PV-03','G4-PV-02','G5-PV-05']],
+ ['Comparing & rounding','Rounding',['PV-04','G2-PV-04','G3-PV-02','G4-PV-03','G5-PV-03','G5-PV-04']],
+ ['Addition','Facts & mental addition',['AD-01','AD-02','AD-03','AD-04','AD-05','AD-06','G2-AD-01','G2-AD-03','G2-AD-08','G3-AD-01','G3-AD-04','G4-AD-01','G5-AS-01']],
  ['Addition','Missing addends',['G2-AD-02']],
- ['Addition','Adding in columns',['AD-07','TB-04','G2-AD-04','G2-AD-05','G2-AD-06','G3-AD-02','G3-AD-03','G4-AD-02','G4-AD-04']],
+ ['Addition','Adding in columns',['AD-07','TB-04','G2-AD-04','G2-AD-05','G2-AD-06','G3-AD-02','G3-AD-03','G4-AD-02','G4-AD-04','G5-AS-02']],
  ['Subtraction','Facts & mental subtraction',['SB-01','SB-02','G2-SB-01','G2-SB-02','G2-SB-07','G3-SB-01','G4-SB-01']],
- ['Subtraction','Subtracting in columns',['SB-03','G2-SB-03','G2-SB-04','G3-SB-02','G3-SB-03','G4-SB-02','G4-SB-03']],
+ ['Subtraction','Subtracting in columns',['SB-03','G2-SB-03','G2-SB-04','G3-SB-02','G3-SB-03','G4-SB-02','G4-SB-03','G5-AS-03']],
  ['Subtraction','Fact families & missing numbers',['SB-04','G2-SB-06','G2-SB-08']],
  ['Multiplication','Meaning: groups & arrays',['G2-MU-01','G3-MU-01']],
  ['Multiplication','Times tables & missing factors',['G2-MU-03','G2-MU-04','G2-MU-05','G3-MU-02','G3-MU-03','G3-MU-04']],
  ['Multiplication','Properties',['G3-MU-06','G4-MU-06']],
- ['Multiplication','Multiplying tens & hundreds',['G3-MU-05','G4-MU-03']],
- ['Multiplication','Multi-digit multiplication',['G3-MU-07','G4-MU-04','G4-MU-05','G4-MU-07']],
- ['Division','Meaning & division facts',['G3-DV-01','G3-DV-02','G3-DV-03','G4-DV-01']],
- ['Division','Remainders & long division',['G3-DV-04','G4-DV-02','G4-DV-03']],
+ ['Multiplication','Multiplying tens & hundreds',['G3-MU-05','G4-MU-03','G5-MU-01']],
+ ['Multiplication','Multi-digit multiplication',['G3-MU-07','G4-MU-04','G4-MU-05','G4-MU-07','G5-MU-02']],
+ ['Division','Meaning & division facts',['G3-DV-01','G3-DV-02','G3-DV-03','G4-DV-01','G5-DV-01','G5-DV-03']],
+ ['Division','Remainders & long division',['G3-DV-04','G4-DV-02','G4-DV-03','G5-DV-02']],
  ['Division','Dividing by 10, 100 & tens',['G3-DV-06']],
- ['Order of operations','Order of operations',['G3-OO-01','G4-OO-01']],
- ['Factors & multiples','Factors, multiples & primes',['G4-FM-01','G4-FM-04','G4-FM-02','G4-FM-03']],
+ ['Order of operations','Order of operations',['G3-OO-01','G4-OO-01','G5-OO-01']],
+ ['Order of operations','Powers of ten',['G5-EX-01']],
+ ['Factors & multiples','Factors, multiples & primes',['G4-FM-01','G4-FM-04','G4-FM-02','G4-FM-03','G5-FC-01','G5-FC-02']],
  ['Fractions','Equal parts & naming fractions',['FR-01','FR-02','G2-FR-01','G2-FR-03','G3-FR-01','G3-FR-02']],
  ['Fractions','Fraction of a set',['G2-FR-04','G3-FR-05']],
- ['Fractions','Fraction word problems',['FR-03','G2-FR-06']],
+ ['Fractions','Fraction word problems',['FR-03','G2-FR-06','G5-FR-07']],
  ['Fractions','Equivalent & simplest form',['G3-FR-03','G3-FR-07','G4-FR-01']],
  ['Fractions','Comparing fractions',['G2-FR-05','G3-FR-04','G4-FR-02']],
- ['Fractions','Adding & subtracting fractions',['G3-FR-08','G3-FR-12','G4-FR-03','G4-FR-06','G4-FR-05']],
- ['Fractions','Mixed numbers',['G3-FR-09','G4-FR-04']],
- ['Decimals','Decimals & fractions',['G3-FR-06','G4-DC-01']],
+ ['Fractions','Adding & subtracting fractions',['G3-FR-08','G3-FR-12','G4-FR-03','G4-FR-06','G4-FR-05','G5-FR-01','G5-FR-02']],
+ ['Fractions','Multiplying & dividing fractions',['G5-FR-03','G5-FR-04','G5-FR-05']],
+ ['Fractions','Mixed numbers',['G3-FR-09','G4-FR-04','G5-FR-06']],
+ ['Decimals','Decimals & fractions',['G3-FR-06','G4-DC-01','G5-FR-08']],
  ['Decimals','Comparing decimals',['G3-FR-10','G4-DC-02']],
- ['Decimals','Adding & subtracting decimals',['G3-FR-11','G4-DC-03','G4-DC-04']],
- ['Measurement','Length',['ME-01','G2-ME-01','G2-ME-02','G2-ME-03','G2-ME-05','G3-ME-02','G3-ME-03','G4-ME-01']],
- ['Measurement','Weight & capacity',['ME-02','ME-03','G2-ME-06','G2-ME-07','G3-ME-04','G3-ME-05','G4-ME-02','G4-ME-03']],
+ ['Decimals','Adding & subtracting decimals',['G3-FR-11','G4-DC-03','G4-DC-04','G5-DC-01','G5-DC-02']],
+ ['Decimals','Multiplying & dividing decimals',['G5-DC-03','G5-DC-04','G5-DC-05','G5-DC-06']],
+ ['Measurement','Length',['ME-01','G2-ME-01','G2-ME-02','G2-ME-03','G2-ME-05','G3-ME-02','G3-ME-03','G4-ME-01','G5-ME-01','G5-ME-04']],
+ ['Measurement','Weight & capacity',['ME-02','ME-03','G2-ME-06','G2-ME-07','G3-ME-04','G3-ME-05','G4-ME-02','G4-ME-03','G5-ME-02','G5-ME-03']],
  ['Measurement','Temperature',['G2-ME-08','G3-ME-06','G4-ME-05']],
  ['Money','Coins, bills & counting money',['MO-01','MO-02','G2-MO-01','G2-MO-02','G2-MO-05','G3-MO-01','G3-MO-03']],
  ['Money','Making change',['G3-MO-02']],
  ['Time','Telling time',['TM-01','TM-02','G2-TM-01','G2-TM-02','G3-TM-01','G3-TM-06']],
- ['Time','Elapsed time',['TM-03','G2-TM-03','G2-TM-05','G3-TM-02','G3-TM-07']],
+ ['Time','Elapsed time',['TM-03','G2-TM-03','G2-TM-05','G3-TM-02','G3-TM-07','G5-ME-06']],
  ['Time','Calendar',['TM-04','G2-TM-04','G3-TM-03','G3-TM-05']],
- ['Geometry','2D shapes & polygons',['GE-01','G2-GE-01','G3-GE-01','G3-GE-08','G4-GE-03']],
+ ['Geometry','2D shapes & polygons',['GE-01','G2-GE-01','G3-GE-01','G3-GE-08','G4-GE-03','G5-GE-02']],
  ['Geometry','Symmetry, congruence & reflections',['GE-02','GE-05','G2-GE-04','G3-GE-04','G4-GE-05']],
- ['Geometry','3D shapes & volume',['GE-03','GE-04','G2-GE-03','G4-GE-07','G4-GE-08']],
- ['Geometry','Area & perimeter',['G2-GE-02','G2-GE-05','G3-GE-05','G3-GE-06','G3-GE-07','G4-GE-04']],
- ['Geometry','Lines & angles',['G3-GE-03','G3-GE-10','G4-GE-01','G4-GE-02']],
- ['Geometry','Coordinate grids',['G4-GE-06']],
+ ['Geometry','3D shapes & volume',['GE-03','GE-04','G2-GE-03','G4-GE-07','G4-GE-08','G5-GE-06','G5-GE-07']],
+ ['Geometry','Area & perimeter',['G2-GE-02','G2-GE-05','G3-GE-05','G3-GE-06','G3-GE-07','G4-GE-04','G5-GE-03','G5-GE-05']],
+ ['Geometry','Lines & angles',['G3-GE-03','G3-GE-10','G4-GE-01','G4-GE-02','G5-GE-01']],
+ ['Geometry','Coordinate grids',['G4-GE-06','G5-GE-08']],
  ['Data & graphing','Sorting & tally charts',['DG-01','DG-02','G2-DG-04','G3-DG-04']],
- ['Data & graphing','Picture & bar graphs',['DG-03','G2-DG-01','G2-DG-02','G3-DG-01','G3-DG-02','G4-DG-04']],
- ['Data & graphing','Line plots & stem-and-leaf',['G2-DG-03','G3-DG-03','G4-DG-01']],
- ['Data & graphing','Venn, circle & line graphs',['G2-DG-05','G2-DG-06','G2-DG-07','G3-DG-05','G3-DG-06','G3-DG-07','G4-DG-05','G4-DG-06','G4-DG-07']],
+ ['Data & graphing','Picture & bar graphs',['DG-03','G2-DG-01','G2-DG-02','G3-DG-01','G3-DG-02','G4-DG-04','G5-DG-01']],
+ ['Data & graphing','Line plots & stem-and-leaf',['G2-DG-03','G3-DG-03','G4-DG-01','G5-DG-03']],
+ ['Data & graphing','Venn, circle & line graphs',['G2-DG-05','G2-DG-06','G2-DG-07','G3-DG-05','G3-DG-06','G3-DG-07','G4-DG-05','G4-DG-06','G4-DG-07','G5-DG-02','G5-DG-04']],
  ['Data & graphing','Probability',['G4-DG-03']],
  ['Word problems','One-step add & subtract',['AD-08','SB-05','WP-01','G2-AD-07','G2-SB-05','G3-AD-05','G3-SB-04']],
- ['Word problems','Two-step & multi-step',['G4-AD-03','G4-SB-04']],
- ['Word problems','Multiply & divide stories',['G3-MU-08','G3-DV-07','G4-MU-08','G4-DV-04']],
+ ['Word problems','Two-step & multi-step',['G4-AD-03','G4-SB-04','G5-AS-04']],
+ ['Word problems','Multiply & divide stories',['G3-MU-08','G3-DV-07','G4-MU-08','G4-DV-04','G5-MU-03','G5-DV-04']],
  ['Word problems','Fraction, decimal & estimation stories',['FR-03','G4-PV-05']],
- ['Word problems','Measurement, money & time stories',['ME-04','MO-03','TM-05','G2-MO-03','G3-ME-07','G4-ME-04','G4-ME-06']],
+ ['Word problems','Measurement, money & time stories',['ME-04','MO-03','TM-05','G2-MO-03','G3-ME-07','G4-ME-04','G4-ME-06','G5-ME-05','G5-DC-07']],
+ ['Algebra','Expressions & equations',['G5-AL-01','G5-AL-03','G5-AL-04']],
+ ['Algebra','Patterns & rules',['G5-AL-05']],
 ];
 
-let adminTab = 'levels', cmpGrades = [2,3,4], cmpLevel = '2', cmpTopic = '', cmpStrand = '', cmpFlagged = false, cmpOpen = new Set();
+let adminTab = 'levels', cmpGrades = [3,4,5], cmpLevel = '2', cmpTopic = '', cmpStrand = '', cmpFlagged = false, cmpOpen = new Set();
 function adminTabs(){
   return `<div class="tabs" role="tablist">${[['levels','Compare levels'],['grades','Compare grades']].map(([k,t]) =>
     `<button class="tab" role="tab" aria-selected="${adminTab===k}" data-tab="${k}">${t}</button>`).join('')}</div>`;
@@ -588,7 +621,7 @@ function showCompare(){
   const fsel = 'class="rv-filter"';
   app.innerHTML = `<div class="rv-top"><div><h2>Admin page</h2>${adminTabs()}</div><button class="btn btn-soft" id="toKid">← Kid page</button></div>
     <div class="cmp-filters">
-      <span class="label">Grades</span>${[1,2,3,4].map(g => `<label class="cmp-chk"><input type="checkbox" data-g="${g}" ${grades.includes(g)?'checked':''}> Grade ${g}</label>`).join('')}
+      <span class="label">Grades</span>${[1,2,3,4,5].map(g => `<label class="cmp-chk"><input type="checkbox" data-g="${g}" ${grades.includes(g)?'checked':''}> Grade ${g}</label>`).join('')}
       <label class="label">Level <select id="clevel" ${fsel} style="width:auto;display:inline-block;margin-left:6px"><option value="">All levels</option>${[1,2,3].map(l=>`<option value="${l}" ${String(l)===cmpLevel?'selected':''}>Level ${l} (${['Bronze','Silver','Gold'][l-1]})</option>`).join('')}</select></label>
       <label class="cmp-chk"><input type="checkbox" id="cflag" ${cmpFlagged?'checked':''}> Only flagged</label>
     </div>
@@ -627,7 +660,7 @@ function showAdmin(){
   app.innerHTML = `<div style="font-size:60px;line-height:1" aria-hidden="true">🛠️</div>
     <h1>Admin page</h1>${adminTabs()}
     <div class="field"><span class="label" id="glabel">Grade</span>
-      <div class="grades" role="radiogroup" aria-labelledby="glabel">${[1,2,3,4].map(g=>`<button class="gbtn" role="radio" aria-checked="${g===grade}" data-g="${g}">Grade ${g}<small>${BANK.filter(q => q.grade === g).length} in the bank</small></button>`).join('')}</div></div>
+      <div class="grades" role="radiogroup" aria-labelledby="glabel">${[1,2,3,4,5].map(g=>`<button class="gbtn" role="radio" aria-checked="${g===grade}" data-g="${g}">Grade ${g}<small>${BANK.filter(q => q.grade === g).length} in the bank</small></button>`).join('')}</div></div>
     <div class="field"><label for="atopic">Category (optional)</label>
       <select id="atopic" ${sel}><option value="">All categories</option>${topics.map(t => `<option value="${esc(t)}" ${t===adminTopic?'selected':''}>${esc(t)}</option>`).join('')}</select></div>
     <div class="field"><label for="asub">Subcategory (optional)</label>
@@ -679,7 +712,7 @@ function showReview(){
     return `<th class="rv-lv"><div class="rv-lvname">Level ${l} · ${['Bronze','Silver','Gold'][l-1]}</div><div><b>${qs.length}</b> q · <b>${pct(qs.length,total)}</b> of all</div><div class="muted">${st} stretch (${pct(st,qs.length)})</div></th>`; }).join('');
   const fsel = 'class="rv-filter"';
   app.innerHTML = `<div class="rv-top"><div><h2>Review · Grade ${grade}</h2><p class="muted">${total} questions · Level 1 ${pct(pool.filter(q=>q.difficulty===1).length,total)} · Level 2 ${pct(pool.filter(q=>q.difficulty===2).length,total)} · Level 3 ${pct(pool.filter(q=>q.difficulty===3).length,total)} · Stretch ${pct(pool.filter(q=>q.is_stretch).length,total)}</p></div>
-    <div class="rv-actions"><label class="muted">Grade <select id="rgrade" ${fsel}>${[1,2,3,4].map(g=>`<option ${g===grade?'selected':''}>${g}</option>`).join('')}</select></label>
+    <div class="rv-actions"><label class="muted">Grade <select id="rgrade" ${fsel}>${[1,2,3,4,5].map(g=>`<option ${g===grade?'selected':''}>${g}</option>`).join('')}</select></label>
       <label class="muted">Level <select id="rlevel" ${fsel}><option value="">All</option>${[1,2,3].map(l=>`<option value="${l}" ${String(l)===adminLevel?'selected':''}>${l}</option>`).join('')}</select></label>
       <button class="btn btn-soft" id="back">← Back to admin</button></div></div>
     <div class="rv-scroll"><table class="rv-table"><thead><tr>
@@ -717,7 +750,7 @@ function showQuestion(){
     else input = `<div class="answer-row">${f.map((x,i)=>`${order&&x.label?`<span class="muted">${x.label}</span>`:''}<button class="box small ${i===0?'active':''}" id="f${i}" aria-label="${esc(x.label||'box '+(i+1))}"></button>${!order?`<span>${esc(x.label)}</span>`:''}${order&&i<f.length-1?'<span class="muted">,</span>':''}`).join('')}</div>${pad(false)}`;
   } else {
     const unit = q.params && q.params.unit ? `<span>${esc(q.params.unit)}</span>` : '';
-    input = `<div class="answer-row"><div class="box active" id="fv" aria-label="Your answer"></div>${unit}</div>${pad(q.answer_type==='time')}`;
+    input = `<div class="answer-row"><div class="box active" id="fv" aria-label="Your answer"></div>${unit}</div>${pad(q.answer_type==='time', q.grade===5 && q.answer_type==='number')}`;
   }
   const qHtml = q.visual_type==='column' ? `<p class="q-text">${esc(q.question)}</p>` : `<p class="q-text">${esc(q.question)}</p>`;
   app.innerHTML = `<span class="topic-tag">Grade ${grade} · ${esc(q.topic)}${previewId ? ` · Preview of ${esc(previewId)} (Level ${q.difficulty})` : ''}</span>${qHtml}${visualOf(q)}${input}
@@ -753,9 +786,9 @@ function confirmExit(){
   document.getElementById('leave').onclick = () => { const a = answerNow(); if (a !== '') answers[idx] = a; exitedAt = idx; showResults(); };
   document.getElementById('stay').focus();
 }
-function pad(colon){
+function pad(colon, ext){
   return `<div class="pad">${[1,2,3,4,5,6,7,8,9].map(k=>`<button class="key" data-k="${k}">${k}</button>`).join('')}
-    <button class="key alt" data-k="${colon?':':'clear'}">${colon?':':'Clear'}</button><button class="key" data-k="0">0</button><button class="key alt" data-k="back" aria-label="Delete">⌫</button></div>`;
+    <button class="key alt" data-k="${colon?':':'clear'}">${colon?':':'Clear'}</button><button class="key" data-k="0">0</button><button class="key alt" data-k="back" aria-label="Delete">⌫</button>${ext?`<button class="key alt" data-k="." aria-label="Decimal point">.</button><button class="key alt" data-k="-" aria-label="Minus sign">−</button><span></span>`:''}</div>`;
 }
 function answerNow(){ return cur.at==='multi_number' ? (cur.parts.every(x=>x!=='') ? cur.parts.join('|') : '') : cur.value; }
 function refresh(){
@@ -773,6 +806,8 @@ function wire(q){
     const k=b.dataset.k, multi=cur.at==='multi_number'; let v = multi ? cur.parts[cur.field] : cur.value;
     if (k==='back') v=v.slice(0,-1); else if (k==='clear') v='';
     else if (k===':'){ if(!v.includes(':') && v.length) v+=':'; }
+    else if (k==='.'){ if(!v.includes('.')) v+=(v===''||v==='-')?'0.':'.'; }
+    else if (k==='-'){ v = v.startsWith('-') ? v.slice(1) : '-'+v; }
     else { const max = multi ? 7 : cur.at==="time" ? 5 : 7; if (v.length<max) v+=k; }
     if (multi){ cur.parts[cur.field]=v; if (/^\d$/.test(k) && v.length>=String((q.correct_answer.split('|')[cur.field])).length && cur.field<cur.parts.length-1 && cur.parts[cur.field+1]==='') cur.field++; }
     else cur.value=v;
@@ -836,6 +871,7 @@ document.addEventListener('keydown', e => {
   if (/^[0-9]$/.test(e.key)) done = tap(pad.querySelector(`.key[data-k="${e.key}"]`));
   else if (e.key === 'Backspace') done = tap(pad.querySelector('.key[data-k="back"]'));
   else if (e.key === ':') done = tap(pad.querySelector('.key[data-k=":"]'));   // the ':' key only exists on time questions
+  else if (e.key === '.' || e.key === '-') done = tap(pad.querySelector(`.key[data-k="${e.key}"]`));   // only on Grade 5 typed questions
   if (done || e.key === 'Backspace') e.preventDefault();
 });
 // browser warning on refresh, back or closing the tab while a test is in progress
