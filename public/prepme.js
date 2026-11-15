@@ -102,6 +102,9 @@ function V(vt, p, small){
     case 'angle': return angleV(p);
     case 'lines': return linesV(p);
     case 'symmetry': return symmetryV(p);
+    case 'dial': return dialV(p);
+    case 'year_calendar': return yearCalV(p);
+    case 'circle_rd': return circleRD(p);
   }
   return '';
 }
@@ -115,6 +118,10 @@ function clock(p){
   return `<svg viewBox="0 0 240 240" width="240" height="240" role="img" aria-label="Clock">${o.join('')}</svg>`;
 }
 function numberLine(p){
+  if(p.jumps){const W=700,pad=30,n=p.max-p.min,s=(W-2*pad)/n,y=90,ls=p.label_step||1,o=[`<line x1="${pad-12}" y1="${y}" x2="${W-pad+12}" y2="${y}" stroke="${INK}" stroke-width="3"/>`];
+    for(let i=0;i<=n;i++){const x=pad+i*s,lab=(p.min+i)%ls===0;o.push(`<line x1="${x}" y1="${y-(lab?10:6)}" x2="${x}" y2="${y+(lab?10:6)}" stroke="${INK}" stroke-width="${lab?2:1.2}"/>`);if(lab)o.push(T(x,y+34,p.min+i,`font-size="17" fill="${INK}"`));}
+    for(let k=0;k<p.jumps;k++){const x1=pad+(p.start+k*p.size-p.min)*s,x2=x1+p.size*s;o.push(`<path d="M${x1},${y-4} Q${(x1+x2)/2},${y-4-Math.min(60,p.size*s*0.6)} ${x2},${y-4}" fill="none" stroke="${ACC}" stroke-width="3"/><polygon points="${x2},${y-4} ${x2-9},${y-14} ${x2-2},${y-16}" fill="${ACC}"/>`);}
+    return `<svg viewBox="0 0 ${W} 135" width="${W}" height="135" role="img" aria-label="Number line with jumps">${o.join('')}</svg>`;}
   const W=700,H=110,pad=28,n=p.max-p.min,s=(W-2*pad)/n,y=58,o=[`<line x1="${pad-12}" y1="${y}" x2="${W-pad+12}" y2="${y}" stroke="${INK}" stroke-width="3"/>`];
   for(let i=0;i<=n;i++){const x=pad+i*s;o.push(`<line x1="${x}" y1="${y-10}" x2="${x}" y2="${y+10}" stroke="${INK}" stroke-width="2"/>`,T(x,y+34,p.min+i,`font-size="18" fill="${INK}"`));}
   const sx=pad+(p.start-p.min)*s; o.push(`<circle cx="${sx}" cy="${y}" r="10" fill="${ACC}"/>`,T(sx,y-20,'start',`font-size="16" fill="${ACC}"`));
@@ -153,6 +160,8 @@ function baseTen(p){
   const W=x+3*(u+5); return `<svg viewBox="-2 -2 ${W+4} ${10*u+4}" width="${W+4}" height="${10*u+4}" role="img" aria-label="Base ten blocks">${o.join('')}</svg>`;
 }
 function fraction(p, small){
+  if(p.wholes>1){const out=[];let left=p.shaded;for(let w=0;w<p.wholes;w++){const k=Math.max(0,Math.min(p.parts,left));left-=k;out.push(fraction({...p,wholes:1,shaded:k},small));}
+    return `<div style="display:flex;gap:18px;justify-content:center;flex-wrap:wrap">${out.join('')}</div>`;}
   const S=small?110:180, c=S/2, o=[], n=p.parts, uneq=!p.equal, v=p.variant||0;
   const fillI = i => i < (p.shaded||0) ? '#7FB2EC' : '#fff';
   if(p.shape==='circle'){
@@ -180,6 +189,10 @@ function units(p){
   return `<svg viewBox="0 0 ${W} 100" width="${W}" height="100" role="img" aria-label="Object measured with paper clips">${o}</svg>`;
 }
 function ruler(p){
+  if(p.mm){const u=6,W=100*u+40;let o=`<rect x="20" y="6" width="${p.length_mm*u}" height="28" rx="5" fill="#8BD3A8" stroke="${INK}" stroke-width="2"/><rect x="20" y="44" width="${100*u}" height="54" fill="#FFF4D6" stroke="${INK}" stroke-width="2"/>`;
+    for(let k=0;k<=100;k++){const x=20+k*u,L=k%10===0?24:k%5===0?16:9;o+=`<line x1="${x}" y1="44" x2="${x}" y2="${44+L}" stroke="${INK}" stroke-width="${k%10?1:2.2}"/>`; if(k%10===0)o+=T(x,90,k/10,`font-size="15" fill="${INK}"`);}
+    o+=T(W-70,24,'cm (mm marks)',`font-size="14" fill="#5D6B85"`);
+    return `<svg viewBox="0 0 ${W} 104" width="${W}" height="104" role="img" aria-label="Ruler in millimeters">${o}</svg>`; }
   if(p.quarters){ const u=96,n=6,W=n*u+30; let o=`<rect x="14" y="6" width="${p.length_q/4*u}" height="28" rx="6" fill="#8BD3A8" stroke="${INK}" stroke-width="2"/><rect x="14" y="44" width="${n*u}" height="50" fill="#FFF4D6" stroke="${INK}" stroke-width="2"/>`;
     for(let k=0;k<=n*4;k++){const x=14+k*u/4,L=k%4===0?24:k%2===0?16:10;o+=`<line x1="${x}" y1="44" x2="${x}" y2="${44+L}" stroke="${INK}" stroke-width="${k%4?1.5:2.5}"/>`; if(k%4===0)o+=T(x,88,k/4,`font-size="16" fill="${INK}"`);}
     o+=T(W-40,24,'inches',`font-size="15" fill="#5D6B85"`);
@@ -267,7 +280,9 @@ function tally(p){const rh=56,W=470;let o=T(W/2,24,esc(p.title),`font-size="20" 
   return `<svg viewBox="0 0 ${W} ${48+p.rows.length*rh}" width="${W}" height="${48+p.rows.length*rh}" role="img" aria-label="Tally chart">${o}</svg>`;}
 function pictograph(p){const key=p.key||1,rh=54,W=600;let o=T(W/2,24,esc(p.title),`font-size="20" fill="${INK}"`);
   p.rows.forEach((r,i)=>{const y=44+i*rh,icon=[...r.label][0];o+=`<rect x="1" y="${y}" width="${W-2}" height="${rh}" fill="#fff" stroke="${LINE}" stroke-width="2"/><line x1="140" y1="${y}" x2="140" y2="${y+rh}" stroke="${LINE}" stroke-width="2"/>`+T(70,y+34,esc(r.label.split(' ').slice(1).join(' ')),`font-size="18" fill="${INK}"`);
-    for(let k=0;k<r.count/key;k++)o+=T(166+k*44,y+38,icon,'font-size="30"');});
+    const whole=Math.floor(r.count/key), half=(r.count%key)!==0;
+    for(let k=0;k<whole;k++)o+=T(166+k*44,y+38,icon,'font-size="30"');
+    if(half){const cx=166+whole*44;o+=`<clipPath id="hp${i}"><rect x="${cx-22}" y="${y}" width="22" height="${rh}"/></clipPath><g clip-path="url(#hp${i})">${T(cx,y+38,icon,'font-size="30"')}</g>`;}});
   o+=T(W/2,48+p.rows.length*rh+22,`Each picture = ${key} vote${key>1?'s':''}`,`font-size="16" fill="#5D6B85"`);
   return `<svg viewBox="0 0 ${W} ${80+p.rows.length*rh}" width="${W}" height="${80+p.rows.length*rh}" role="img" aria-label="Pictograph">${o}</svg>`;}
 function barChart(p){const n=p.bars.length,step=p.step||1,W=Math.max(460,90+n*100),H=330,l=50,b=270,top=40,u=(b-top)/p.max,bw=Math.min(80,(W-l-40)/n-30);let o=T(W/2,24,esc(p.title),`font-size="20" fill="${INK}"`);
@@ -282,9 +297,10 @@ function areaGrid(p){const c=40,o=[];const on=p.cells?new Set(p.cells.map(x=>x[0
   return `<svg viewBox="0 0 ${p.cols*c+4} ${p.rows*c+4}" width="${p.cols*c+4}" height="${p.rows*c+4}" role="img" aria-label="Grid of squares">${o.join('')}</svg>`;}
 function rectV(p){const sc=Math.min(320/p.w,170/p.h),w=p.w*sc,h=p.h*sc,W=w+120,H=h+70;
   return `<svg viewBox="0 0 ${W} ${H}" width="${W}" height="${H}" role="img" aria-label="Rectangle"><rect x="20" y="10" width="${w}" height="${h}" fill="#BFD9F7" stroke="${INK}" stroke-width="4"/>${T(20+w/2,h+42,`${p.w} ${p.unit}`,`font-size="20" fill="${INK}"`)}${T(w+62,10+h/2+7,`${p.h} ${p.unit}`,`font-size="20" fill="${INK}"`)}</svg>`;}
-function fractionLine(p){const W=600,l=40,r=W-40,y=50,s=(r-l)/p.parts;let o=`<line x1="${l}" y1="${y}" x2="${r}" y2="${y}" stroke="${INK}" stroke-width="3"/>`;
-  for(let k=0;k<=p.parts;k++){const x=l+k*s;o+=`<line x1="${x}" y1="${y-12}" x2="${x}" y2="${y+12}" stroke="${INK}" stroke-width="${k%p.parts?2:3}"/>`;}
-  o+=T(l,y+40,'0',`font-size="20" fill="${INK}"`)+T(r,y+40,'1',`font-size="20" fill="${INK}"`)+`<circle cx="${l+p.point*s}" cy="${y}" r="11" fill="${ACC}"/>`;
+function fractionLine(p){const M=p.max||1,W=600,l=40,r=W-40,y=50,s=(r-l)/(p.parts*M);let o=`<line x1="${l}" y1="${y}" x2="${r}" y2="${y}" stroke="${INK}" stroke-width="3"/>`;
+  for(let k=0;k<=p.parts*M;k++){const x=l+k*s;o+=`<line x1="${x}" y1="${y-12}" x2="${x}" y2="${y+12}" stroke="${INK}" stroke-width="${k%p.parts?2:3}"/>`;}
+  for(let w=0;w<=M;w++)o+=T(l+w*p.parts*s,y+40,String(w),`font-size="20" fill="${INK}"`);
+  o+=`<circle cx="${l+p.point*s}" cy="${y}" r="11" fill="${ACC}"/>`;
   return `<svg viewBox="0 0 ${W} 100" width="${W}" height="100" role="img" aria-label="Number line from 0 to 1">${o}</svg>`;}
 function linePlot(p){const xs=p.values.map(v=>v.x),n=xs.length,W=Math.max(420,n*70+60),step=(W-80)/(n-1),y0=60+Math.max(...p.values.map(v=>v.count))*26;let o='';
   o+=`<line x1="20" y1="${y0}" x2="${W-20}" y2="${y0}" stroke="${INK}" stroke-width="3"/>`;
@@ -296,10 +312,33 @@ function angleV(p){const rot=Math.min(p.rotate||0,180-p.degrees),cx=110,cy=140,L
   const P=a=>[cx+L*Math.cos(a),cy+L*Math.sin(a)],[x1,y1]=P(a1),[x2,y2]=P(a2),ar=34,[ax1,ay1]=[cx+ar*Math.cos(a1),cy+ar*Math.sin(a1)],[ax2,ay2]=[cx+ar*Math.cos(a2),cy+ar*Math.sin(a2)];
   return `<svg viewBox="0 0 220 180" width="220" height="180" role="img" aria-label="Angle"><line x1="${cx}" y1="${cy}" x2="${x1}" y2="${y1}" stroke="${INK}" stroke-width="5" stroke-linecap="round"/><line x1="${cx}" y1="${cy}" x2="${x2}" y2="${y2}" stroke="${INK}" stroke-width="5" stroke-linecap="round"/><path d="M${ax1},${ay1} A${ar},${ar} 0 ${p.degrees>180?1:0} 0 ${ax2},${ay2}" fill="none" stroke="${ACC}" stroke-width="4"/><circle cx="${cx}" cy="${cy}" r="5" fill="${INK}"/></svg>`;}
 function linesV(p){const t=p.tilt||0;let g;
-  if(p.kind==='parallel') g=`<line x1="20" y1="70" x2="220" y2="70" stroke="${INK}" stroke-width="5"/><line x1="20" y1="130" x2="220" y2="130" stroke="${SKY}" stroke-width="5"/>`;
+  const ah=(x,y,d)=>`<polygon points="${x},${y} ${x-14*d},${y-8} ${x-14*d},${y+8}" fill="${INK}"/>`, dot=(x,y)=>`<circle cx="${x}" cy="${y}" r="7" fill="${INK}"/>`;
+  if(p.kind==='line') g=`<line x1="30" y1="100" x2="210" y2="100" stroke="${INK}" stroke-width="5"/>${ah(222,100,1)}${ah(18,100,-1)}`;
+  else if(p.kind==='segment') g=`<line x1="40" y1="100" x2="200" y2="100" stroke="${INK}" stroke-width="5"/>${dot(40,100)}${dot(200,100)}`;
+  else if(p.kind==='ray') g=`<line x1="40" y1="100" x2="210" y2="100" stroke="${INK}" stroke-width="5"/>${dot(40,100)}${ah(222,100,1)}`;
+  else if(p.kind==='parallel') g=`<line x1="20" y1="70" x2="220" y2="70" stroke="${INK}" stroke-width="5"/><line x1="20" y1="130" x2="220" y2="130" stroke="${SKY}" stroke-width="5"/>`;
   else if(p.kind==='perpendicular') g=`<line x1="20" y1="100" x2="220" y2="100" stroke="${INK}" stroke-width="5"/><line x1="120" y1="10" x2="120" y2="190" stroke="${SKY}" stroke-width="5"/>`;
   else g=`<line x1="20" y1="100" x2="220" y2="100" stroke="${INK}" stroke-width="5"/><line x1="50" y1="180" x2="190" y2="20" stroke="${SKY}" stroke-width="5"/>`;
   return `<svg viewBox="0 0 240 200" width="240" height="200" role="img" aria-label="Two lines"><g transform="rotate(${t} 120 100)">${g}</g></svg>`;}
+function dialV(p){const c=150,R=118,o=[`<rect x="40" y="250" width="220" height="30" rx="8" fill="#C9D3E3" stroke="${INK}" stroke-width="3"/><circle cx="${c}" cy="${c}" r="${R+14}" fill="#F3F6FB" stroke="${INK}" stroke-width="5"/>`];
+  const ang=v=>(-135+270*v/p.max)*Math.PI/180;
+  for(let v=0;v<=p.max+1e-9;v+=p.minor){const a=ang(v),big=Math.abs(v/p.step-Math.round(v/p.step))<1e-9,r1=big?R-18:R-9;o.push(`<line x1="${c+r1*Math.sin(a)}" y1="${c-r1*Math.cos(a)}" x2="${c+R*Math.sin(a)}" y2="${c-R*Math.cos(a)}" stroke="${INK}" stroke-width="${big?3:1.4}"/>`);
+    if(big)o.push(T(c+(R-38)*Math.sin(a),c-(R-38)*Math.cos(a)+6,String(Math.round(v)),`font-size="16" fill="${INK}"`));}
+  const a=ang(p.value);o.push(`<line x1="${c}" y1="${c}" x2="${c+(R-12)*Math.sin(a)}" y2="${c-(R-12)*Math.cos(a)}" stroke="${ACC}" stroke-width="5" stroke-linecap="round"/><circle cx="${c}" cy="${c}" r="9" fill="${INK}"/>`,T(c,c+62,esc(p.unit),`font-size="20" fill="#5D6B85"`));
+  return `<svg viewBox="0 0 300 285" width="300" height="285" role="img" aria-label="Weighing scale">${o.join('')}</svg>`;}
+function yearCalV(p){const M=['January','February','March','April','May','June','July','August','September','October','November','December'],cw=25,ch=20,bw=7*cw+14,bh=26+20+6*ch+8;let o=T(2*bw,22,String(p.year),`font-size="20" fill="${INK}"`);
+  const hl=p.highlight||[0,0];
+  for(let m=0;m<12;m++){const ox=(m%4)*bw,oy=34+Math.floor(m/4)*bh,first=new Date(p.year,m,1).getDay(),days=new Date(p.year,m+1,0).getDate();
+    o+=`<rect x="${ox+2}" y="${oy}" width="${bw-6}" height="${bh-6}" rx="6" fill="#fff" stroke="${LINE}" stroke-width="1.5"/>`+T(ox+bw/2-2,oy+16,M[m],`font-size="15" fill="${INK}"`);
+    ['S','M','T','W','T','F','S'].forEach((d,k)=>o+=T(ox+8+k*cw+cw/2,oy+34,d,`font-size="12" fill="#5D6B85"`));
+    for(let d=1;d<=days;d++){const k=first+d-1,x=ox+8+(k%7)*cw,y=oy+40+Math.floor(k/7)*ch,h=hl[0]===m+1&&hl[1]===d;
+      if(h)o+=`<rect x="${x+1}" y="${y}" width="${cw-2}" height="${ch-1}" rx="3" fill="#FFF1E6" stroke="${ACC}" stroke-width="1.5"/>`;
+      o+=T(x+cw/2,y+14,d,`font-size="12" fill="${h?ACC:INK}"`);}}
+  return `<svg viewBox="0 0 ${4*bw} ${34+3*bh}" width="${4*bw}" height="${34+3*bh}" role="img" aria-label="Calendar for the year">${o}</svg>`;}
+function circleRD(p){const c=110,R=90;let o=`<circle cx="${c}" cy="${c}" r="${R}" fill="#BFD9F7" stroke="${INK}" stroke-width="4"/><circle cx="${c}" cy="${c}" r="5" fill="${INK}"/>`;
+  if(p.show==='diameter') o+=`<line x1="${c-R}" y1="${c}" x2="${c+R}" y2="${c}" stroke="${ACC}" stroke-width="5"/>`+(p.label?T(c,c-12,esc(p.label),`font-size="18" fill="${INK}"`):'');
+  else o+=`<line x1="${c}" y1="${c}" x2="${c+R*0.71}" y2="${c-R*0.71}" stroke="${ACC}" stroke-width="5"/>`+(p.label?T(c+R*0.36-26,c-R*0.36-6,esc(p.label),`font-size="18" fill="${INK}"`):'');
+  return `<svg viewBox="0 0 220 220" width="220" height="220" role="img" aria-label="Circle">${o}</svg>`;}
 function symmetryV(p){const S=180,c=S/2,st=`fill="#BFD9F7" stroke="${INK}" stroke-width="4" stroke-linejoin="round"`;
   const ln=p.line==='vertical'?`<line x1="${c}" y1="0" x2="${c}" y2="${S}"/>`:p.line==='horizontal'?`<line x1="0" y1="${c}" x2="${S}" y2="${c}"/>`:
     (p.shape==='rectangle'?`<line x1="8" y1="${c-41}" x2="${S-8}" y2="${c+41}"/>`:`<line x1="${c-62}" y1="${c-62}" x2="${c+62}" y2="${c+62}"/>`);
@@ -414,14 +453,14 @@ let adminMode = false, adminTopic = '', adminSub = '', adminLevel = '';
 // ---------- strands: the same skill followed across grades (used by Admin > Compare grades) ----------
 const STRANDS = [
  ['Numbers & counting','Counting & number words',['NC-01','NC-02']],
- ['Numbers & counting','Skip counting & number charts',['NC-03','NC-04','NC-05','G2-SC-01','G2-SC-02']],
+ ['Numbers & counting','Skip counting & number charts',['NC-03','NC-04','NC-05','G2-SC-01','G2-SC-02','G3-PV-05']],
  ['Numbers & counting','Even & odd',['NC-06']],
  ['Numbers & counting','Patterns',['NP-01','NP-02']],
  ['Place value','Place value (ones to millions)',['TB-01','TB-02','TB-03','PV-01','PV-02','G2-PV-01','G3-PV-01']],
- ['Place value','Expanded form',['PV-03','G2-PV-02','G4-PV-01']],
+ ['Place value','Expanded form',['PV-03','G2-PV-02','G3-PV-04','G4-PV-01']],
  ['Comparing & rounding','Comparing & ordering numbers',['CN-01','CN-02','G2-PV-03','G3-PV-03','G4-PV-02']],
  ['Comparing & rounding','Rounding',['PV-04','G2-PV-04','G3-PV-02','G4-PV-03']],
- ['Addition','Facts & mental addition',['AD-01','AD-02','AD-03','AD-04','AD-05','AD-06','G2-AD-01','G2-AD-03','G2-AD-08','G3-AD-01','G4-AD-01']],
+ ['Addition','Facts & mental addition',['AD-01','AD-02','AD-03','AD-04','AD-05','AD-06','G2-AD-01','G2-AD-03','G2-AD-08','G3-AD-01','G3-AD-04','G4-AD-01']],
  ['Addition','Missing addends',['G2-AD-02']],
  ['Addition','Adding in columns',['AD-07','TB-04','G2-AD-04','G2-AD-05','G2-AD-06','G3-AD-02','G3-AD-03','G4-AD-02']],
  ['Subtraction','Facts & mental subtraction',['SB-01','SB-02','G2-SB-01','G2-SB-02','G2-SB-07','G3-SB-01','G4-SB-01']],
@@ -432,7 +471,7 @@ const STRANDS = [
  ['Multiplication','Properties',['G3-MU-06','G4-MU-02']],
  ['Multiplication','Multiplying tens & hundreds',['G3-MU-05','G4-MU-03']],
  ['Multiplication','Multi-digit multiplication',['G3-MU-07','G4-MU-04','G4-MU-05']],
- ['Division','Meaning & division facts',['G3-DV-01','G3-DV-02','G3-DV-03','G3-DV-05','G4-DV-01']],
+ ['Division','Meaning & division facts',['G3-DV-01','G3-DV-02','G3-DV-03','G4-DV-01']],
  ['Division','Remainders & long division',['G3-DV-04','G4-DV-02','G4-DV-03']],
  ['Division','Dividing by 10, 100 & tens',['G3-DV-06']],
  ['Order of operations','Order of operations',['G3-OO-01','G4-OO-01']],
@@ -442,23 +481,23 @@ const STRANDS = [
  ['Fractions','Fraction word problems',['FR-03','G2-FR-06']],
  ['Fractions','Equivalent & simplest form',['G3-FR-03','G3-FR-07','G4-FR-01']],
  ['Fractions','Comparing fractions',['G2-FR-05','G3-FR-04','G4-FR-02']],
- ['Fractions','Adding & subtracting fractions',['G3-FR-08','G4-FR-03']],
+ ['Fractions','Adding & subtracting fractions',['G3-FR-08','G3-FR-12','G4-FR-03']],
  ['Fractions','Mixed numbers',['G3-FR-09','G4-FR-04']],
  ['Decimals','Decimals & fractions',['G3-FR-06','G4-DC-01']],
  ['Decimals','Comparing decimals',['G3-FR-10','G4-DC-02']],
  ['Decimals','Adding & subtracting decimals',['G3-FR-11','G4-DC-03']],
  ['Measurement','Length',['ME-01','G2-ME-01','G2-ME-02','G2-ME-03','G2-ME-05','G3-ME-02','G3-ME-03','G4-ME-01']],
- ['Measurement','Weight & capacity',['ME-02','ME-03','G2-ME-06','G2-ME-07','G3-ME-01','G3-ME-04','G3-ME-05','G4-ME-02','G4-ME-03']],
+ ['Measurement','Weight & capacity',['ME-02','ME-03','G2-ME-06','G2-ME-07','G3-ME-04','G3-ME-05','G4-ME-02','G4-ME-03']],
  ['Measurement','Temperature',['G2-ME-08','G3-ME-06']],
  ['Money','Coins, bills & counting money',['MO-01','MO-02','G2-MO-01','G2-MO-02','G2-MO-05','G3-MO-01','G3-MO-03']],
  ['Money','Making change',['G3-MO-02']],
- ['Time','Telling time',['TM-01','TM-02','G2-TM-01','G2-TM-02','G3-TM-01','G3-TM-04']],
- ['Time','Elapsed time',['TM-03','G2-TM-03','G2-TM-05','G3-TM-02']],
+ ['Time','Telling time',['TM-01','TM-02','G2-TM-01','G2-TM-02','G3-TM-01','G3-TM-06']],
+ ['Time','Elapsed time',['TM-03','G2-TM-03','G2-TM-05','G3-TM-02','G3-TM-07']],
  ['Time','Calendar',['TM-04','G2-TM-04','G3-TM-03','G3-TM-05']],
  ['Geometry','2D shapes & polygons',['GE-01','G2-GE-01','G3-GE-01','G3-GE-08','G4-GE-03']],
- ['Geometry','Symmetry, congruence & reflections',['GE-02','GE-05','G2-GE-04','G3-GE-04','G3-GE-09','G4-GE-05']],
+ ['Geometry','Symmetry, congruence & reflections',['GE-02','GE-05','G2-GE-04','G3-GE-04','G4-GE-05']],
  ['Geometry','3D shapes & volume',['GE-03','GE-04','G2-GE-03','G4-GE-07']],
- ['Geometry','Area & perimeter',['G2-GE-02','G2-GE-05','G3-GE-02','G3-GE-05','G3-GE-06','G3-GE-07','G4-GE-04']],
+ ['Geometry','Area & perimeter',['G2-GE-02','G2-GE-05','G3-GE-05','G3-GE-06','G3-GE-07','G4-GE-04']],
  ['Geometry','Lines & angles',['G3-GE-03','G3-GE-10','G4-GE-01','G4-GE-02']],
  ['Geometry','Coordinate grids',['G4-GE-06']],
  ['Data & graphing','Sorting & tally charts',['DG-01','DG-02','G2-DG-04','G3-DG-04']],
@@ -466,12 +505,11 @@ const STRANDS = [
  ['Data & graphing','Line plots & stem-and-leaf',['G2-DG-03','G3-DG-03','G4-DG-01','G4-DG-02']],
  ['Data & graphing','Venn, circle & line graphs',['G2-DG-05','G2-DG-06','G2-DG-07','G3-DG-05','G3-DG-06','G3-DG-07']],
  ['Data & graphing','Probability',['G4-DG-03']],
- ['Word problems','One-step add & subtract',['AD-08','SB-05','WP-01','G2-AD-07','G2-SB-05','G3-WP-03']],
- ['Word problems','Two-step & multi-step',['G3-WP-02','G4-WP-01']],
- ['Word problems','Multiply & divide stories',['G3-WP-01','G4-WP-02']],
+ ['Word problems','One-step add & subtract',['AD-08','SB-05','WP-01','G2-AD-07','G2-SB-05','G3-AD-05','G3-SB-04']],
+ ['Word problems','Two-step & multi-step',['G4-WP-01']],
+ ['Word problems','Multiply & divide stories',['G3-MU-08','G3-DV-07','G4-WP-02']],
  ['Word problems','Fraction, decimal & estimation stories',['FR-03','G4-WP-03','G4-WP-04']],
- ['Word problems','Measurement, money & time stories',['ME-04','MO-03','TM-05','G2-MO-03','G4-ME-04']],
- ['Roman numerals','Roman numerals',['G3-RN-01']],
+ ['Word problems','Measurement, money & time stories',['ME-04','MO-03','TM-05','G2-MO-03','G3-ME-07','G4-ME-04']],
 ];
 
 let adminTab = 'levels', cmpGrades = [2,3,4], cmpLevel = '2', cmpTopic = '', cmpStrand = '', cmpFlagged = false, cmpOpen = new Set();
