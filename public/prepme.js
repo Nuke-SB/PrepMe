@@ -102,6 +102,10 @@ function V(vt, p, small){
     case 'angle': return angleV(p);
     case 'lines': return linesV(p);
     case 'symmetry': return symmetryV(p);
+    case 'angle_pair': return anglePairV(p);
+    case 'pictograph2': return `<div style="display:flex;flex-direction:column;gap:14px;align-items:center">${pictograph(p.a)}${pictograph(p.b)}</div>`;
+    case 'venn3': return venn3V(p);
+    case 'factor_tree': return factorTreeV(p);
     case 'dial': return dialV(p);
     case 'year_calendar': return yearCalV(p);
     case 'circle_rd': return circleRD(p);
@@ -308,7 +312,7 @@ function linePlot(p){const xs=p.values.map(v=>v.x),n=xs.length,W=Math.max(420,n*
     for(let k=0;k<v.count;k++)o+=T(x,y0-16-k*26,'✕',`font-size="22" fill="${SKY}"`);});
   o+=T(W/2,y0+58,esc(p.title||''),`font-size="16" fill="#5D6B85"`);
   return `<svg viewBox="0 0 ${W} ${y0+70}" width="${W}" height="${y0+70}" role="img" aria-label="Line plot">${o}</svg>`;}
-function angleV(p){const rot=Math.min(p.rotate||0,180-p.degrees),cx=110,cy=140,L=95,a1=-rot*Math.PI/180,a2=a1-p.degrees*Math.PI/180;
+function angleV(p){const rot=p.degrees>180?(p.rotate||0):Math.min(p.rotate||0,180-p.degrees),cx=110,cy=140,L=95,a1=-rot*Math.PI/180,a2=a1-p.degrees*Math.PI/180;
   const P=a=>[cx+L*Math.cos(a),cy+L*Math.sin(a)],[x1,y1]=P(a1),[x2,y2]=P(a2),ar=34,[ax1,ay1]=[cx+ar*Math.cos(a1),cy+ar*Math.sin(a1)],[ax2,ay2]=[cx+ar*Math.cos(a2),cy+ar*Math.sin(a2)];
   return `<svg viewBox="0 0 220 180" width="220" height="180" role="img" aria-label="Angle"><line x1="${cx}" y1="${cy}" x2="${x1}" y2="${y1}" stroke="${INK}" stroke-width="5" stroke-linecap="round"/><line x1="${cx}" y1="${cy}" x2="${x2}" y2="${y2}" stroke="${INK}" stroke-width="5" stroke-linecap="round"/><path d="M${ax1},${ay1} A${ar},${ar} 0 ${p.degrees>180?1:0} 0 ${ax2},${ay2}" fill="none" stroke="${ACC}" stroke-width="4"/><circle cx="${cx}" cy="${cy}" r="5" fill="${INK}"/></svg>`;}
 function linesV(p){const t=p.tilt||0;let g;
@@ -339,6 +343,25 @@ function circleRD(p){const c=110,R=90;let o=`<circle cx="${c}" cy="${c}" r="${R}
   if(p.show==='diameter') o+=`<line x1="${c-R}" y1="${c}" x2="${c+R}" y2="${c}" stroke="${ACC}" stroke-width="5"/>`+(p.label?T(c,c-12,esc(p.label),`font-size="18" fill="${INK}"`):'');
   else o+=`<line x1="${c}" y1="${c}" x2="${c+R*0.71}" y2="${c-R*0.71}" stroke="${ACC}" stroke-width="5"/>`+(p.label?T(c+R*0.36-26,c-R*0.36-6,esc(p.label),`font-size="18" fill="${INK}"`):'');
   return `<svg viewBox="0 0 220 220" width="220" height="220" role="img" aria-label="Circle">${o}</svg>`;}
+function anglePairV(p){const cx=60,cy=200,L=230,P=d=>[cx+L*Math.cos(-d*Math.PI/180),cy+L*Math.sin(-d*Math.PI/180)],[x1,y1]=P(p.a),[x2,y2]=P(p.a+p.b);
+  let o=`<line x1="${cx}" y1="${cy}" x2="${cx+L}" y2="${cy}" stroke="${INK}" stroke-width="5" stroke-linecap="round"/><line x1="${cx}" y1="${cy}" x2="${x1}" y2="${y1}" stroke="${SKY}" stroke-width="5" stroke-linecap="round"/><line x1="${cx}" y1="${cy}" x2="${x2}" y2="${y2}" stroke="${INK}" stroke-width="5" stroke-linecap="round"/>`;
+  const arc=(d1,d2,r,c)=>{const a1=-d1*Math.PI/180,a2=-d2*Math.PI/180;return `<path d="M${cx+r*Math.cos(a1)},${cy+r*Math.sin(a1)} A${r},${r} 0 0 0 ${cx+r*Math.cos(a2)},${cy+r*Math.sin(a2)}" fill="none" stroke="${c}" stroke-width="4"/>`;};
+  o+=arc(0,p.a,48,ACC)+arc(p.a,p.a+p.b,70,'#7FB2EC');
+  const lab=(d,r,t)=>T(cx+r*Math.cos(-d*Math.PI/180),cy+r*Math.sin(-d*Math.PI/180)+6,esc(t),`font-size="19" fill="${INK}"`);
+  o+=lab(p.a/2,p.a<30?140:100,p.labels[0])+lab(p.a+p.b/2,p.b<30?160:125,p.labels[1]);
+  if(p.right) o+=`<polyline points="${cx+18},${cy} ${cx+18},${cy-18} ${cx},${cy-18}" fill="none" stroke="${INK}" stroke-width="2.5"/>`;
+  o+=`<circle cx="${cx}" cy="${cy}" r="6" fill="${INK}"/>`;
+  const minY=Math.min(y1,y2,cy)-10, maxX=Math.max(x1,x2,cx+L)+10, minX=Math.min(x1,x2,cx)-10;
+  return `<svg viewBox="${minX} ${minY} ${maxX-minX} ${cy+20-minY}" width="${Math.min(460,maxX-minX)}" role="img" aria-label="Two angles side by side">${o}</svg>`;}
+function venn3V(p){const R=p.regions,W=520,H=440,c=[[200,170],[320,170],[260,275]],r=110;let o=`<rect x="2" y="2" width="${W-4}" height="${H-4}" rx="14" fill="#fff" stroke="${LINE}" stroke-width="2"/>`;
+  const cols=['#FF9F66','#7FB2EC','#8BD3A8'];c.forEach(([x,y],k)=>o+=`<circle cx="${x}" cy="${y}" r="${r}" fill="${cols[k]}" fill-opacity=".22" stroke="${cols[k]}" stroke-width="3"/>`);
+  o+=T(120,40,esc(p.labels[0]),`font-size="18" fill="${INK}"`)+T(400,40,esc(p.labels[1]),`font-size="18" fill="${INK}"`)+T(260,418,esc(p.labels[2]),`font-size="18" fill="${INK}"`);
+  const put=(x,y,v)=>T(x,y,v,`font-size="24" fill="${INK}"`);
+  o+=put(160,150,R.a)+put(360,150,R.b)+put(260,330,R.c)+put(260,130,R.ab)+put(200,245,R.ac)+put(320,245,R.bc)+put(260,205,R.abc)+put(470,410,R.none)+T(470,385,'none',`font-size="13" fill="#5D6B85"`);
+  return `<svg viewBox="0 0 ${W} ${H}" width="${W}" height="${H}" role="img" aria-label="Venn diagram with three circles">${o}</svg>`;}
+function factorTreeV(p){const W=440,H=260;let o='';const box=(x,y,t)=>`<rect x="${x-30}" y="${y-22}" width="60" height="40" rx="10" fill="${t==='?'?'#FFF1E6':'#fff'}" stroke="${t==='?'?ACC:INK}" stroke-width="3"/>`+T(x,y+8,t,`font-size="22" fill="${t==='?'?ACC:INK}"`);
+  const walk=(n,x,y,dx)=>{if(n.k){n.k.forEach((ch,j)=>{const nx=x+(j?dx:-dx),ny=y+90;o+=`<line x1="${x}" y1="${y+18}" x2="${nx}" y2="${ny-22}" stroke="${INK}" stroke-width="2.5"/>`;walk(ch,nx,ny,dx/2);});}o+=box(x,y,String(n.n));};
+  walk(p.tree,W/2,30,110);return `<svg viewBox="0 0 ${W} ${H}" width="${W}" height="${H}" role="img" aria-label="Factor tree">${o}</svg>`;}
 function symmetryV(p){const S=180,c=S/2,st=`fill="#BFD9F7" stroke="${INK}" stroke-width="4" stroke-linejoin="round"`;
   const ln=p.line==='vertical'?`<line x1="${c}" y1="0" x2="${c}" y2="${S}"/>`:p.line==='horizontal'?`<line x1="0" y1="${c}" x2="${S}" y2="${c}"/>`:
     (p.shape==='rectangle'?`<line x1="8" y1="${c-41}" x2="${S-8}" y2="${c+41}"/>`:`<line x1="${c-62}" y1="${c-62}" x2="${c+62}" y2="${c+62}"/>`);
@@ -358,6 +381,8 @@ function polyV(p){const W=380,H=270,a=(p.rotate||0)*Math.PI/180;
   const P=pts.map(([x,y])=>[ox+(x-mnx)*s,H-oy-(y-mny)*s]);
   const inside=(x,y)=>{let c=false;for(let i=0,j=P.length-1;i<P.length;j=i++){const [xi,yi]=P[i],[xj,yj]=P[j];if(((yi>y)!==(yj>y))&&(x<(xj-xi)*(y-yi)/(yj-yi)+xi))c=!c;}return c;};
   let o=`<polygon points="${P.map(q=>q.join(',')).join(' ')}" fill="#BFD9F7" stroke="${INK}" stroke-width="3" stroke-linejoin="round"/>`;
+  [].concat(p.right_at===undefined?[]:p.right_at).forEach(k=>{const n=P.length,[x0,y0]=P[k],[xa,ya]=P[(k+1)%n],[xb,yb]=P[(k-1+n)%n],u=(x,y)=>{const L=Math.hypot(x,y)||1;return [x/L*16,y/L*16];},[ux,uy]=u(xa-x0,ya-y0),[vx,vy]=u(xb-x0,yb-y0);
+    o+=`<polyline points="${x0+ux},${y0+uy} ${x0+ux+vx},${y0+uy+vy} ${x0+vx},${y0+vy}" fill="none" stroke="${INK}" stroke-width="2.5"/>`;});
   (p.labels||[]).forEach((l,k)=>{const [x1,y1]=P[k],[x2,y2]=P[(k+1)%P.length];const mx=(x1+x2)/2,my=(y1+y2)/2,L=Math.hypot(x2-x1,y2-y1)||1;let nx=(y2-y1)/L,ny=-(x2-x1)/L;
     if(inside(mx+nx*4,my+ny*4)){nx=-nx;ny=-ny;} const d=Math.abs(nx)>0.7?30:16;o+=T(mx+nx*d,my+ny*d+6,esc(l),`font-size="17" fill="${INK}"`);});
   if(p.right_angle!=null){const k=p.right_angle,[x,y]=P[k],[ax,ay]=P[(k+1)%P.length],[bx,by]=P[(k+P.length-1)%P.length];const u=(qx,qy)=>{const d=Math.hypot(qx-x,qy-y);return [(qx-x)/d*16,(qy-y)/d*16]};const [ux,uy]=u(ax,ay),[vx,vy]=u(bx,by);o+=`<path d="M${x+ux},${y+uy} L${x+ux+vx},${y+uy+vy} L${x+vx},${y+vy}" fill="none" stroke="${INK}" stroke-width="2"/>`;}
@@ -406,7 +431,8 @@ function vennV(p){const W=560,H=p.outside?330:290,cy=150,r=118,cx1=200,cx2=360;
 function pieV(p){const c=150,r=128,cols=['#FF9F66','#7FB2EC','#8BD3A8','#F2C14E'];let o='',a=0;
   const pt=t=>[c+r*Math.sin(t*2*Math.PI/p.total),c-r*Math.cos(t*2*Math.PI/p.total)];
   p.slices.forEach((s,i)=>{const [x1,y1]=pt(a),[x2,y2]=pt(a+s.value),lg=s.value*2>p.total?1:0;o+=`<path d="M${c},${c} L${x1},${y1} A${r},${r} 0 ${lg} 1 ${x2},${y2} Z" fill="${cols[i]}" stroke="${INK}" stroke-width="3"/>`;a+=s.value;});
-  for(let k=0;k<p.total;k++){const [x,y]=pt(k);o+=`<line x1="${c}" y1="${c}" x2="${x}" y2="${y}" stroke="${INK}" stroke-width="1.2" stroke-opacity=".55"/>`;}
+  if(!p.fractions) for(let k=0;k<p.total;k++){const [x,y]=pt(k);o+=`<line x1="${c}" y1="${c}" x2="${x}" y2="${y}" stroke="${INK}" stroke-width="1.2" stroke-opacity=".55"/>`;}
+  if(p.fractions){let acc=0;const g=(x,y)=>y?g(y,x%y):x;p.slices.forEach(s=>{const mid=(acc+s.value/2)*2*Math.PI/p.total,d=g(s.value,p.total);o+=T(c+r*0.6*Math.sin(mid),c-r*0.6*Math.cos(mid)+8,`${s.value/d}/${p.total/d}`,`font-size="22" fill="${INK}"`);acc+=s.value;});}
   let lg='';p.slices.forEach((s,i)=>{lg+=`<rect x="318" y="${40+i*40}" width="24" height="24" rx="4" fill="${cols[i]}" stroke="${INK}" stroke-width="2"/>`+`<text x="352" y="${59+i*40}" font-family="Nunito,sans-serif" font-weight="800" font-size="18" fill="${INK}">${esc(s.label)}</text>`;});
   return `<svg viewBox="0 0 500 ${2*c+30}" width="500" height="${2*c+30}" role="img" aria-label="Circle graph">${o}${lg}${T(c,2*c+24,esc(p.title),`font-size="16" fill="#5D6B85"`)}</svg>`;}
 function lineGraphV(p){const n=p.points.length,W=560,H=330,l=60,b=270,top=40,u=(b-top)/(p.max-(p.min||0)),dx=(W-l-40)/(n-1);let o=T(W/2,22,esc(p.title),`font-size="18" fill="${INK}"`);
@@ -418,8 +444,12 @@ function lineGraphV(p){const n=p.points.length,W=560,H=330,l=60,b=270,top=40,u=(
 function protractorV(p){const cx=220,cy=210,R=180,ri=140;let o=`<path d="M${cx-R},${cy} A${R},${R} 0 0 1 ${cx+R},${cy} Z" fill="#FFF7DE" stroke="${INK}" stroke-width="3"/>`;
   for(let d=0;d<=180;d+=5){const a=d*Math.PI/180,L=d%10===0?20:10,x1=cx+R*Math.cos(a),y1=cy-R*Math.sin(a),x2=cx+(R-L)*Math.cos(a),y2=cy-(R-L)*Math.sin(a);o+=`<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="${INK}" stroke-width="${d%10?1:2}"/>`;
     if(d%10===0&&d%180)o+=T(cx+(R-36)*Math.cos(a),cy-(R-36)*Math.sin(a)+5,d,`font-size="13" fill="${INK}"`);}
+  if(p.from_left){for(let d=10;d<180;d+=10){const a=d*Math.PI/180;o+=T(cx+(R-62)*Math.cos(a),cy-(R-62)*Math.sin(a)+5,180-d,`font-size="11" fill="#5D6B85"`);}
+    const a=(180-p.degrees)*Math.PI/180;o+=`<line x1="${cx}" y1="${cy}" x2="${cx-ri*1.2}" y2="${cy}" stroke="${SKY}" stroke-width="5" stroke-linecap="round"/><line x1="${cx}" y1="${cy}" x2="${cx+ri*1.2*Math.cos(a)}" y2="${cy-ri*1.2*Math.sin(a)}" stroke="${SKY}" stroke-width="5" stroke-linecap="round"/>`;
+    o+=`<path d="M${cx-40},${cy} A40,40 0 0 1 ${cx+40*Math.cos(a)},${cy-40*Math.sin(a)}" fill="none" stroke="${ACC}" stroke-width="4"/><circle cx="${cx}" cy="${cy}" r="6" fill="${INK}"/>`;
+  } else {
   const a=p.degrees*Math.PI/180;o+=`<line x1="${cx}" y1="${cy}" x2="${cx+ri*1.2}" y2="${cy}" stroke="${SKY}" stroke-width="5" stroke-linecap="round"/><line x1="${cx}" y1="${cy}" x2="${cx+ri*1.2*Math.cos(a)}" y2="${cy-ri*1.2*Math.sin(a)}" stroke="${SKY}" stroke-width="5" stroke-linecap="round"/>`;
-  o+=`<path d="M${cx+40},${cy} A40,40 0 0 0 ${cx+40*Math.cos(a)},${cy-40*Math.sin(a)}" fill="none" stroke="${ACC}" stroke-width="4"/><circle cx="${cx}" cy="${cy}" r="6" fill="${INK}"/>`;
+  o+=`<path d="M${cx+40},${cy} A40,40 0 0 0 ${cx+40*Math.cos(a)},${cy-40*Math.sin(a)}" fill="none" stroke="${ACC}" stroke-width="4"/><circle cx="${cx}" cy="${cy}" r="6" fill="${INK}"/>`;}
   return `<svg viewBox="0 0 440 230" width="440" height="230" role="img" aria-label="Angle on a protractor">${o}</svg>`;}
 const visualOf = (q, small) => q.visual_type && q.visual_type !== 'none' && q.visual_type !== 'column' ? `<div class="visual">${V(q.visual_type, q.params, small)}</div>` :
                                q.visual_type === 'column' ? `<div class="visual">${V('column', q.params)}</div>` : '';
@@ -456,39 +486,39 @@ const STRANDS = [
  ['Numbers & counting','Skip counting & number charts',['NC-03','NC-04','NC-05','G2-SC-01','G2-SC-02','G3-PV-05']],
  ['Numbers & counting','Even & odd',['NC-06']],
  ['Numbers & counting','Patterns',['NP-01','NP-02']],
- ['Place value','Place value (ones to millions)',['TB-01','TB-02','TB-03','PV-01','PV-02','G2-PV-01','G3-PV-01']],
- ['Place value','Expanded form',['PV-03','G2-PV-02','G3-PV-04','G4-PV-01']],
+ ['Place value','Place value (ones to millions)',['TB-01','TB-02','TB-03','PV-01','PV-02','G2-PV-01','G3-PV-01','G4-PV-01']],
+ ['Place value','Expanded form',['PV-03','G2-PV-02','G3-PV-04','G4-PV-04']],
  ['Comparing & rounding','Comparing & ordering numbers',['CN-01','CN-02','G2-PV-03','G3-PV-03','G4-PV-02']],
  ['Comparing & rounding','Rounding',['PV-04','G2-PV-04','G3-PV-02','G4-PV-03']],
  ['Addition','Facts & mental addition',['AD-01','AD-02','AD-03','AD-04','AD-05','AD-06','G2-AD-01','G2-AD-03','G2-AD-08','G3-AD-01','G3-AD-04','G4-AD-01']],
  ['Addition','Missing addends',['G2-AD-02']],
- ['Addition','Adding in columns',['AD-07','TB-04','G2-AD-04','G2-AD-05','G2-AD-06','G3-AD-02','G3-AD-03','G4-AD-02']],
+ ['Addition','Adding in columns',['AD-07','TB-04','G2-AD-04','G2-AD-05','G2-AD-06','G3-AD-02','G3-AD-03','G4-AD-02','G4-AD-04']],
  ['Subtraction','Facts & mental subtraction',['SB-01','SB-02','G2-SB-01','G2-SB-02','G2-SB-07','G3-SB-01','G4-SB-01']],
- ['Subtraction','Subtracting in columns',['SB-03','G2-SB-03','G2-SB-04','G3-SB-02','G3-SB-03','G4-SB-02']],
+ ['Subtraction','Subtracting in columns',['SB-03','G2-SB-03','G2-SB-04','G3-SB-02','G3-SB-03','G4-SB-02','G4-SB-03']],
  ['Subtraction','Fact families & missing numbers',['SB-04','G2-SB-06','G2-SB-08']],
  ['Multiplication','Meaning: groups & arrays',['G2-MU-01','G3-MU-01']],
- ['Multiplication','Times tables & missing factors',['G2-MU-03','G2-MU-04','G2-MU-05','G3-MU-02','G3-MU-03','G3-MU-04','G4-MU-01']],
- ['Multiplication','Properties',['G3-MU-06','G4-MU-02']],
+ ['Multiplication','Times tables & missing factors',['G2-MU-03','G2-MU-04','G2-MU-05','G3-MU-02','G3-MU-03','G3-MU-04']],
+ ['Multiplication','Properties',['G3-MU-06','G4-MU-06']],
  ['Multiplication','Multiplying tens & hundreds',['G3-MU-05','G4-MU-03']],
- ['Multiplication','Multi-digit multiplication',['G3-MU-07','G4-MU-04','G4-MU-05']],
+ ['Multiplication','Multi-digit multiplication',['G3-MU-07','G4-MU-04','G4-MU-05','G4-MU-07']],
  ['Division','Meaning & division facts',['G3-DV-01','G3-DV-02','G3-DV-03','G4-DV-01']],
  ['Division','Remainders & long division',['G3-DV-04','G4-DV-02','G4-DV-03']],
  ['Division','Dividing by 10, 100 & tens',['G3-DV-06']],
  ['Order of operations','Order of operations',['G3-OO-01','G4-OO-01']],
- ['Factors & multiples','Factors, multiples & primes',['G4-FM-01','G4-FM-02','G4-FM-03']],
+ ['Factors & multiples','Factors, multiples & primes',['G4-FM-01','G4-FM-04','G4-FM-02','G4-FM-03']],
  ['Fractions','Equal parts & naming fractions',['FR-01','FR-02','G2-FR-01','G2-FR-03','G3-FR-01','G3-FR-02']],
- ['Fractions','Fraction of a set',['G2-FR-04','G3-FR-05','G4-FR-05']],
+ ['Fractions','Fraction of a set',['G2-FR-04','G3-FR-05']],
  ['Fractions','Fraction word problems',['FR-03','G2-FR-06']],
  ['Fractions','Equivalent & simplest form',['G3-FR-03','G3-FR-07','G4-FR-01']],
  ['Fractions','Comparing fractions',['G2-FR-05','G3-FR-04','G4-FR-02']],
- ['Fractions','Adding & subtracting fractions',['G3-FR-08','G3-FR-12','G4-FR-03']],
+ ['Fractions','Adding & subtracting fractions',['G3-FR-08','G3-FR-12','G4-FR-03','G4-FR-06','G4-FR-05']],
  ['Fractions','Mixed numbers',['G3-FR-09','G4-FR-04']],
  ['Decimals','Decimals & fractions',['G3-FR-06','G4-DC-01']],
  ['Decimals','Comparing decimals',['G3-FR-10','G4-DC-02']],
- ['Decimals','Adding & subtracting decimals',['G3-FR-11','G4-DC-03']],
+ ['Decimals','Adding & subtracting decimals',['G3-FR-11','G4-DC-03','G4-DC-04']],
  ['Measurement','Length',['ME-01','G2-ME-01','G2-ME-02','G2-ME-03','G2-ME-05','G3-ME-02','G3-ME-03','G4-ME-01']],
  ['Measurement','Weight & capacity',['ME-02','ME-03','G2-ME-06','G2-ME-07','G3-ME-04','G3-ME-05','G4-ME-02','G4-ME-03']],
- ['Measurement','Temperature',['G2-ME-08','G3-ME-06']],
+ ['Measurement','Temperature',['G2-ME-08','G3-ME-06','G4-ME-05']],
  ['Money','Coins, bills & counting money',['MO-01','MO-02','G2-MO-01','G2-MO-02','G2-MO-05','G3-MO-01','G3-MO-03']],
  ['Money','Making change',['G3-MO-02']],
  ['Time','Telling time',['TM-01','TM-02','G2-TM-01','G2-TM-02','G3-TM-01','G3-TM-06']],
@@ -496,20 +526,20 @@ const STRANDS = [
  ['Time','Calendar',['TM-04','G2-TM-04','G3-TM-03','G3-TM-05']],
  ['Geometry','2D shapes & polygons',['GE-01','G2-GE-01','G3-GE-01','G3-GE-08','G4-GE-03']],
  ['Geometry','Symmetry, congruence & reflections',['GE-02','GE-05','G2-GE-04','G3-GE-04','G4-GE-05']],
- ['Geometry','3D shapes & volume',['GE-03','GE-04','G2-GE-03','G4-GE-07']],
+ ['Geometry','3D shapes & volume',['GE-03','GE-04','G2-GE-03','G4-GE-07','G4-GE-08']],
  ['Geometry','Area & perimeter',['G2-GE-02','G2-GE-05','G3-GE-05','G3-GE-06','G3-GE-07','G4-GE-04']],
  ['Geometry','Lines & angles',['G3-GE-03','G3-GE-10','G4-GE-01','G4-GE-02']],
  ['Geometry','Coordinate grids',['G4-GE-06']],
  ['Data & graphing','Sorting & tally charts',['DG-01','DG-02','G2-DG-04','G3-DG-04']],
- ['Data & graphing','Picture & bar graphs',['DG-03','G2-DG-01','G2-DG-02','G3-DG-01','G3-DG-02']],
- ['Data & graphing','Line plots & stem-and-leaf',['G2-DG-03','G3-DG-03','G4-DG-01','G4-DG-02']],
- ['Data & graphing','Venn, circle & line graphs',['G2-DG-05','G2-DG-06','G2-DG-07','G3-DG-05','G3-DG-06','G3-DG-07']],
+ ['Data & graphing','Picture & bar graphs',['DG-03','G2-DG-01','G2-DG-02','G3-DG-01','G3-DG-02','G4-DG-04']],
+ ['Data & graphing','Line plots & stem-and-leaf',['G2-DG-03','G3-DG-03','G4-DG-01']],
+ ['Data & graphing','Venn, circle & line graphs',['G2-DG-05','G2-DG-06','G2-DG-07','G3-DG-05','G3-DG-06','G3-DG-07','G4-DG-05','G4-DG-06','G4-DG-07']],
  ['Data & graphing','Probability',['G4-DG-03']],
  ['Word problems','One-step add & subtract',['AD-08','SB-05','WP-01','G2-AD-07','G2-SB-05','G3-AD-05','G3-SB-04']],
- ['Word problems','Two-step & multi-step',['G4-WP-01']],
- ['Word problems','Multiply & divide stories',['G3-MU-08','G3-DV-07','G4-WP-02']],
- ['Word problems','Fraction, decimal & estimation stories',['FR-03','G4-WP-03','G4-WP-04']],
- ['Word problems','Measurement, money & time stories',['ME-04','MO-03','TM-05','G2-MO-03','G3-ME-07','G4-ME-04']],
+ ['Word problems','Two-step & multi-step',['G4-AD-03','G4-SB-04']],
+ ['Word problems','Multiply & divide stories',['G3-MU-08','G3-DV-07','G4-MU-08','G4-DV-04']],
+ ['Word problems','Fraction, decimal & estimation stories',['FR-03','G4-PV-05']],
+ ['Word problems','Measurement, money & time stories',['ME-04','MO-03','TM-05','G2-MO-03','G3-ME-07','G4-ME-04','G4-ME-06']],
 ];
 
 let adminTab = 'levels', cmpGrades = [2,3,4], cmpLevel = '2', cmpTopic = '', cmpStrand = '', cmpFlagged = false, cmpOpen = new Set();
@@ -743,7 +773,7 @@ function wire(q){
     const k=b.dataset.k, multi=cur.at==='multi_number'; let v = multi ? cur.parts[cur.field] : cur.value;
     if (k==='back') v=v.slice(0,-1); else if (k==='clear') v='';
     else if (k===':'){ if(!v.includes(':') && v.length) v+=':'; }
-    else { const max = multi ? 5 : cur.at==='time' ? 5 : 7; if (v.length<max) v+=k; }
+    else { const max = multi ? 7 : cur.at==="time" ? 5 : 7; if (v.length<max) v+=k; }
     if (multi){ cur.parts[cur.field]=v; if (/^\d$/.test(k) && v.length>=String((q.correct_answer.split('|')[cur.field])).length && cur.field<cur.parts.length-1 && cur.parts[cur.field+1]==='') cur.field++; }
     else cur.value=v;
     refresh();
