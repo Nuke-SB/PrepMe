@@ -2,13 +2,19 @@ let BANK = [];
 const app = document.getElementById('app'), prog = document.getElementById('progress');
 // The home page never waits for the question bank: it shows straight away and the bank loads in the background.
 let BANK_READY = BANK.length > 0, BANK_ERR = null, bankWaiters = [];
-const COUNT_KEY = 'prepme-counts-v1';
-let COUNT_HINT = { bronze:[55,59,71,58,56], silver:[55,59,71,58,56], gold:[55,59,71,58,56] };   // questions per grade; replaced by the real counts once the bank arrives
+const COUNT_KEY = 'prepme-counts-v2';
+const _H = ['55 questions','59 questions','71 questions','58 questions','56 questions + 4 stories'];
+let COUNT_HINT = { bronze:_H, silver:_H, gold:_H };   // questions per grade; replaced by the real counts once the bank arrives
 try { const c = JSON.parse(localStorage.getItem(COUNT_KEY) || 'null'); if (c && c.silver) COUNT_HINT = c; } catch (e) {}
-function gradeCount(g, m){ return BANK_READY ? medalSubs(g, m).length : ((COUNT_HINT[m] || COUNT_HINT.silver)[g-1] ?? ''); }
+function gradeCount(g, m){ if (!BANK_READY) return ((COUNT_HINT[m] || COUNT_HINT.silver)[g-1] ?? ''); const t = testSize(g, m); return `${t.plain} questions` + (t.stories ? ` + ${t.stories} stories` : ''); }
 (function(){ const st = document.createElement('style'); st.textContent =
   '.loadwait{text-align:center;padding:48px 12px;color:#5D6B85}.loadwait .spin{width:54px;height:54px;margin:0 auto 18px;border:6px solid #D6E4F7;border-top-color:#2F6FD6;border-radius:50%;animation:pmspin .9s linear infinite}' +
-  '.loadwait h2{margin:0 0 8px;color:#1B2A4A}@keyframes pmspin{to{transform:rotate(360deg)}}@media (prefers-reduced-motion:reduce){.loadwait .spin{animation-duration:2.5s}}';
+  '.loadwait h2{margin:0 0 8px;color:#1B2A4A}' +
+  '.choose{display:grid;gap:16px;margin:16px 0}.ch-card{border:2px solid #D6E4F7;border-radius:18px;padding:18px 20px;text-align:left}.ch-card h2{margin:0 0 6px}.ch-card p{margin:0 0 12px}' +
+  '.ch-list{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:8px;margin-bottom:8px}.ch-item{display:flex;flex-wrap:wrap;align-items:center;gap:8px;padding:10px 12px;border:1.5px solid #D6E4F7;border-radius:12px;cursor:pointer}' +
+  '.ch-item input{width:22px;height:22px}.ch-item small{width:100%;color:#5D6B85;padding-left:30px}.ch-acts{display:flex;gap:18px;margin:4px 0 12px}' +
+  '.story{background:#FFF7E6;border:2px solid #F5D9A6;border-radius:16px;padding:14px 18px;margin:8px 0 14px;text-align:left}.story-h{font-weight:800;color:#9A5B00;font-size:15px;margin-bottom:6px}.story p{margin:0;font-size:clamp(18px,2.6vw,21px);line-height:1.5}' +
+  '.story-mini{background:#FFF7E6;border-radius:12px;padding:8px 12px;margin:6px 0;font-size:15px}.story-mini summary{cursor:pointer;font-weight:800;color:#9A5B00}@keyframes pmspin{to{transform:rotate(360deg)}}@media (prefers-reduced-motion:reduce){.loadwait .spin{animation-duration:2.5s}}';
   document.head.appendChild(st); })();
 // Run fn once the bank is loaded. Until then show a waiting screen; after 5 seconds it turns into a clear spinner.
 function whenBank(fn){
@@ -26,8 +32,8 @@ function showBankError(){
 }
 function bankArrived(){
   BANK_READY = true; clearTimeout(whenBank.t);
-  try { const c = {}; Object.keys(MEDALS).forEach(m => c[m] = [1,2,3,4,5].map(g => medalSubs(g, m).length)); localStorage.setItem(COUNT_KEY, JSON.stringify(c)); } catch (e) {}
-  document.querySelectorAll('.gbtn[data-g] small[data-count]').forEach(el => { el.textContent = `${medalSubs(+el.dataset.count, medal).length} questions`; });
+  try { const c = {}; Object.keys(MEDALS).forEach(m => c[m] = [1,2,3,4,5].map(g => gradeCount(g, m))); localStorage.setItem(COUNT_KEY, JSON.stringify(c)); } catch (e) {}
+  document.querySelectorAll('.gbtn[data-g] small[data-count]').forEach(el => { el.textContent = gradeCount(+el.dataset.count, medal); });
   const w = bankWaiters; bankWaiters = []; w.forEach(f => f());
 }
 let test = [], idx = 0, answers = [], reached = 0, exitedAt = null, cur = null, onlyMissed = false, grade = 1, kidName = '';
@@ -60,10 +66,35 @@ function pickAt(list, lv, order, noStretch){ // a question at the wanted level, 
   for (const l of (order[lv] || [lv])) { const at = pool.filter(q => q.difficulty === l); if (at.length) return shuffle(at)[0]; }
   return shuffle(pool.length ? pool : list)[0];
 }
-function pickTest(m = medal){
-  const M = MEDALS[m], subs = medalSubs(grade, m), plan = levelPlan(subs.length, M.mix);
-  return subs.map((list, i) => pickAt(list, plan[i], M.order, !M.stretch));
+// ---------- story problems (Grade 5): one story, then 3-5 questions about it ----------
+const isStory = q => !!(q.params && q.params.story_id);
+const STORY_LV = { bronze: 1, silver: 2, gold: 3 };            // the level of stories each medal gets
+const STORY_N = 4;                                              // stories in a whole test
+function storiesFor(g, lv){                                     // [[part1, part2, ...], ...], one entry per story
+  const m = new Map(); BANK.filter(q => q.grade === g && isStory(q) && (lv == null || q.difficulty === lv)).forEach(q => {
+    const k = q.params.story_id; if (!m.has(k)) m.set(k, []); m.get(k).push(q); });
+  return [...m.values()].map(l => l.sort((a, b) => a.params.part - b.params.part));
 }
+function pickStories(g, m){                                     // different story settings, one of each, in random order
+  const byTitle = new Map(); shuffle(storiesFor(g, STORY_LV[m])).forEach(st => { const t = st[0].params.title; if (!byTitle.has(t)) byTitle.set(t, st); });
+  return shuffle([...byTitle.values()]).slice(0, STORY_N);
+}
+const plainSubs = (g, m) => medalSubs(g, m).filter(list => !isStory(list[0]));
+function pickTest(m = medal){
+  const M = MEDALS[m], subs = plainSubs(grade, m), plan = levelPlan(subs.length, M.mix);
+  return subs.map((list, i) => pickAt(list, plan[i], M.order, !M.stretch)).concat(pickStories(grade, m).flat());
+}
+// ---------- practice: every question of the chosen sections, at the medal's level ----------
+function practiceLevel(list, m){ const M = MEDALS[m], lv = STORY_LV[m]; for (const l of (M.order[lv] || [lv])) if (list.some(q => q.difficulty === l)) return l; return lv; }
+function sectionsFor(g, m){                                     // [{topic, qs}] in bank order
+  const out = new Map();
+  plainSubs(g, m).forEach(list => { const l = practiceLevel(list, m), qs = list.filter(q => q.difficulty === l && (MEDALS[m].stretch || !q.is_stretch));
+    const t = list[0].topic; if (!out.has(t)) out.set(t, { topic: t, qs: [], stories: 0 }); out.get(t).qs.push(...shuffle(qs)); });
+  const st = storiesFor(g, STORY_LV[m]);
+  if (st.length) out.set('Story Problems', { topic: 'Story Problems', qs: shuffle(st).flat(), stories: st.length });
+  return [...out.values()];
+}
+function testSize(g, m){ return { plain: plainSubs(g, m).length, stories: Math.min(STORY_N, new Set(storiesFor(g, STORY_LV[m]).map(s => s[0].params.title)).size) }; }
 // answer options are shown in a new random order every test (ordered scales like certain…impossible stay in order)
 const KEEP_ORDER = [['certain','likely','unlikely','impossible'], ['even','odd'], ['prime','composite'], ['yes','no'], ['true','false'], ['a.m.','p.m.']];
 function prepare(qs){ return qs.map(q => q.answer_type === 'choice_text' && q.options && !KEEP_ORDER.some(k => q.options.every(o => k.includes(String(o)))) ? { ...q, options: shuffle(q.options) } : q); }
@@ -520,7 +551,7 @@ function showWelcome(){
     <h1>Hi there! Ready for your math challenge?</h1>
     <div class="field"><label for="kid">What's your name?</label><input id="kid" class="namebox" maxlength="20" autocomplete="off" placeholder="Type your name" value="${esc(kidName)}"></div>
     <div class="field"><span class="label" id="glabel">Which grade are you in?</span>
-      <div class="grades" role="radiogroup" aria-labelledby="glabel">${[1,2,3,4,5].map(g=>`<button class="gbtn" role="radio" aria-checked="${g===grade}" data-g="${g}">Grade ${g}<small data-count="${g}">${counts[g-1]} questions</small></button>`).join('')}</div></div>
+      <div class="grades" role="radiogroup" aria-labelledby="glabel">${[1,2,3,4,5].map(g=>`<button class="gbtn" role="radio" aria-checked="${g===grade}" data-g="${g}">Grade ${g}<small data-count="${g}">${counts[g-1]}</small></button>`).join('')}</div></div>
     <div class="field"><span class="label" id="mlabel">Pick your level</span>
       <div class="grades medals" role="radiogroup" aria-labelledby="mlabel">${Object.entries(MEDALS).map(([k,M])=>`<button class="gbtn mbtn" role="radio" aria-checked="${k===medal}" data-m="${k}"><span aria-hidden="true" style="font-size:30px;line-height:1">${M.icon}</span>${M.name}<small>${M.blurb} · ${medalSubs(grade,k).length} questions</small></button>`).join('')}</div></div>
     <label class="dc-toggle"><input type="checkbox" id="dcheck" ${doubleCheck?'checked':''}><span><b>Double-check my answers</b><small>Before each Next, you'll get a reminder to check your answer one more time.</small></span></label>
@@ -532,9 +563,39 @@ function showWelcome(){
   app.querySelectorAll('.mbtn').forEach(b => b.onclick = () => { medal = b.dataset.m; app.querySelectorAll('.mbtn').forEach(x => x.setAttribute('aria-checked', String(x === b))); });
   const kid = document.getElementById('kid'); kid.oninput = () => { kidName = kid.value.trim(); };
   document.getElementById('dcheck').onchange = e => { doubleCheck = e.target.checked; };
-  document.getElementById('start').onclick = () => { kidName = kid.value.trim(); adminMode = false; whenBank(() => begin(pickTest())); };
+  document.getElementById('start').onclick = () => { kidName = kid.value.trim(); adminMode = false; whenBank(showChoose); };
   document.getElementById('toAdmin').onclick = e => { e.preventDefault(); whenBank(showAdmin); };
   saveState('welcome');
+}
+// ---------- after "Let's start!": the whole test, or practice chosen sections ----------
+let pickSecs = [];
+function showChoose(){
+  prog.hidden = true; app.classList.remove('wide'); adminMode = false;
+  const secs = sectionsFor(grade, medal), t = testSize(grade, medal), M = MEDALS[medal];
+  pickSecs = pickSecs.filter(x => secs.some(s => s.topic === x));
+  const n = () => secs.filter(s => pickSecs.includes(s.topic)).reduce((a, s) => a + s.qs.length, 0);
+  app.innerHTML = `<h1 style="margin-bottom:4px">${kidName ? `${esc(kidName)}, how` : 'How'} do you want to practice?</h1>
+    <p class="muted" style="margin-top:0">Grade ${grade} · ${M.icon} ${M.name}</p>
+    <div class="choose">
+      <section class="ch-card"><h2>🏁 Whole test</h2>
+        <p>${t.plain} questions, one from each part of Grade ${grade} math${t.stories ? `, then ${t.stories} story problems (each story has 3–5 questions)` : ''}.</p>
+        <button class="btn btn-primary" id="whole">Start the whole test</button></section>
+      <section class="ch-card"><h2>🎯 Practice sections</h2>
+        <p>Pick one or more sections. You'll get every ${M.name} question in them.</p>
+        <div class="ch-list" role="group" aria-label="Sections">${secs.map(s => `<label class="cmp-chk ch-item"><input type="checkbox" data-t="${esc(s.topic)}" ${pickSecs.includes(s.topic) ? 'checked' : ''}><span>${esc(s.topic === 'Story Problems' ? '📖 Story problems' : s.topic)}</span><small>${s.stories ? `${s.stories} stories · ` : ''}${s.qs.length} questions</small></label>`).join('')}</div>
+        <div class="ch-acts"><button class="link" id="all">Select all</button><button class="link" id="none">Clear</button></div>
+        <button class="btn btn-primary" id="practice" ${n() ? '' : 'disabled'}>${n() ? `Practice ${n()} questions` : 'Pick a section first'}</button></section>
+    </div>
+    <p><button class="btn btn-soft" id="back">← Back</button></p>`;
+  const sync = () => { pickSecs = [...app.querySelectorAll('.ch-item input:checked')].map(i => i.dataset.t); const b = document.getElementById('practice'), k = n();
+    b.disabled = !k; b.textContent = k ? `Practice ${k} questions` : 'Pick a section first'; saveState('choose'); };
+  app.querySelectorAll('.ch-item input').forEach(i => i.onchange = sync);
+  document.getElementById('all').onclick = () => { app.querySelectorAll('.ch-item input').forEach(i => i.checked = true); sync(); };
+  document.getElementById('none').onclick = () => { app.querySelectorAll('.ch-item input').forEach(i => i.checked = false); sync(); };
+  document.getElementById('whole').onclick = () => begin(pickTest());
+  document.getElementById('practice').onclick = () => begin(secs.filter(s => pickSecs.includes(s.topic)).flatMap(s => s.qs));
+  document.getElementById('back').onclick = () => showWelcome();
+  window.scrollTo(0, 0); saveState('choose');
 }
 // ---------- Admin page: same screen, plus optional Category and Subcategory ----------
 let adminMode = false, adminTopic = '', adminSub = '', adminLevel = '';
@@ -603,6 +664,7 @@ const STRANDS = [
  ['Word problems','Measurement, money & time stories',['ME-04','MO-03','TM-05','G2-MO-03','G3-ME-07','G4-ME-04','G4-ME-06','G5-ME-05','G5-DC-07']],
  ['Algebra','Expressions & equations',['G5-AL-01','G5-AL-03','G5-AL-04']],
  ['Algebra','Patterns & rules',['G5-AL-05']],
+ ['Word problems','Story problems (one story, several questions)',['G5-PS-01']],
 ];
 
 let adminTab = 'levels', cmpGrades = [3,4,5], cmpLevel = '2', cmpTopic = '', cmpStrand = '', cmpFlagged = false, cmpOpen = new Set();
@@ -724,7 +786,7 @@ function showReview(){
     if (q.answer_type === 'choice_text') opts = `<ul class="rv-opts">${q.options.map(o => `<li class="${String(o) === String(q.correct_answer) ? 'right' : ''}">${esc(o)}</li>`).join('')}</ul>`;
     if (q.answer_type === 'choice_picture') opts = `<div class="opts ${q.options.length===3?'three':'four'}">${q.options.map(o=>`<div class="opt" style="cursor:default;${o.id===q.correct_answer?'border-color:#1E9E62':''}">${V(o.visual_type,o.params,true)}<span class="letter">${o.id}</span></div>`).join('')}</div>`;
     return `<div class="rv-card"><div class="meta"><span class="tag">${esc(q.q_id)}</span><span class="tag lv${q.difficulty}">Level ${q.difficulty}</span>${q.is_stretch?'<span class="tag stretch">Stretch</span>':''}${previewLink(q.q_id)}</div>
-      <div class="row-q">${esc(q.question)}</div>${visualOf(q, true)}${opts}
+      ${storyMini(q)}<div class="row-q">${esc(q.question)}</div>${visualOf(q, true)}${opts}
       <div class="rv-ans"><b>Answer</b> ${esc(correctDisplay(q))}${q.params && q.params.unit ? ' ' + esc(q.params.unit) : ''}</div>
       ${q.wrong_answer_notes ? `<div class="rv-note"><b>Note</b> ${esc(q.wrong_answer_notes)}</div>` : ''}</div>`;
   };
@@ -763,6 +825,9 @@ function renderProgress(){
   prog.innerHTML = `<div class="progress-label"><span>Question ${idx+1} of ${test.length}</span><span class="muted">${done} done${skipped?` · ${skipped} skipped`:''}</span></div>
     <div class="track" role="progressbar" aria-valuemin="0" aria-valuemax="${test.length}" aria-valuenow="${idx+1}"><div class="fill" style="width:${(idx+1)/test.length*100}%"></div></div>`;
 }
+function storyBox(q){ if (!isStory(q)) return ''; const p = q.params;
+  return `<div class="story" aria-label="Story"><div class="story-h">📖 ${esc(p.title)} · question ${p.part} of ${p.parts}</div><p>${esc(p.story)}</p></div>`; }
+function storyMini(q){ return isStory(q) ? `<details class="story-mini" ${q.params.part === 1 ? 'open' : ''}><summary>📖 ${esc(q.params.title)} · question ${q.params.part} of ${q.params.parts}</summary>${esc(q.params.story)}</details>` : ''; }
 function showQuestion(){
   app.classList.remove('wide');
   const q = test[idx]; reached = Math.max(reached, idx); renderProgress();
@@ -782,7 +847,7 @@ function showQuestion(){
     const unit = q.params && q.params.unit ? `<span>${esc(q.params.unit)}</span>` : '';
     input = `<div class="answer-row"><div class="box active" id="fv" aria-label="Your answer"></div>${unit}</div>${pad(q.answer_type==='time', q.grade===5 && q.answer_type==='number')}`;
   }
-  const qHtml = q.visual_type==='column' ? `<p class="q-text">${esc(q.question)}</p>` : `<p class="q-text">${esc(q.question)}</p>`;
+  const qHtml = storyBox(q) + `<p class="q-text">${esc(q.question)}</p>`;
   app.innerHTML = `<span class="topic-tag">Grade ${grade} · ${esc(q.topic)}${previewId ? ` · Preview of ${esc(previewId)} (Level ${q.difficulty})` : ''}</span>${qHtml}${visualOf(q)}${input}
     <div class="nav"><button class="btn btn-soft" id="prev" ${idx===0?'disabled':''}>← Previous</button>
       <div class="right"><button class="btn btn-skip" id="skip">Skip</button><button class="btn btn-primary" id="next" disabled>${idx===test.length-1?'Finish':'Next →'}</button></div></div>
@@ -865,7 +930,7 @@ function saveState(screen){
   try {
     const withTest = screen === 'test' || screen === 'results';
     sessionStorage.setItem(SKEY, JSON.stringify({ screen, grade, medal, kidName, doubleCheck, adminMode, adminTab, adminTopic, adminSub, adminLevel,
-      cmpGrades, cmpLevel, cmpTopic, cmpStrand, cmpFlagged, onlyMissed, idx, reached, exitedAt,
+      cmpGrades, cmpLevel, cmpTopic, cmpStrand, cmpFlagged, onlyMissed, idx, reached, exitedAt, pickSecs,
       answers: withTest ? answers.map(a => a === undefined ? { u: 1 } : a) : [],
       test: withTest ? test.map(q => ({ id: q.q_id, o: q.options, q })) : null }));   // the test's own questions are kept, so a refresh resumes without waiting for the bank
   } catch (e) { /* storage blocked: refresh just goes back to the start page */ }
@@ -873,7 +938,7 @@ function saveState(screen){
 function restoreState(){
   let s; try { s = JSON.parse(sessionStorage.getItem(SKEY) || 'null'); } catch (e) { return false; }
   if (!s || !s.screen) return false;
-  ({ grade, medal, kidName, doubleCheck, adminMode, adminTab, adminTopic, adminSub, adminLevel, cmpLevel, cmpTopic, cmpStrand, cmpFlagged, onlyMissed } = s);
+  ({ grade, medal, kidName, doubleCheck, adminMode, adminTab, adminTopic, adminSub, adminLevel, cmpLevel, cmpTopic, cmpStrand, cmpFlagged, onlyMissed } = s); pickSecs = s.pickSecs || [];
   cmpGrades = s.cmpGrades && s.cmpGrades.length ? s.cmpGrades : cmpGrades;
   if (!MEDALS[medal]) medal = 'silver';
   if (s.test) {
@@ -883,9 +948,9 @@ function restoreState(){
     test = t; idx = Math.min(s.idx || 0, t.length - 1); reached = s.reached || 0; exitedAt = s.exitedAt;
     answers = s.answers.map(a => a && typeof a === 'object' && a.u ? undefined : a);
   }
-  const go_ = { test: showQuestion, results: showResults, review: showReview, compare: () => { adminTab = 'grades'; showCompare(); }, admin: showAdmin, welcome: showWelcome }[s.screen];
+  const go_ = { test: showQuestion, results: showResults, review: showReview, compare: () => { adminTab = 'grades'; showCompare(); }, admin: showAdmin, welcome: showWelcome, choose: showChoose }[s.screen];
   if (!go_ || ((s.screen === 'test' || s.screen === 'results') && !s.test)) { showWelcome(); return true; }
-  ['review','compare','admin'].includes(s.screen) ? whenBank(go_) : go_(); return true;
+  ['review','compare','admin','choose'].includes(s.screen) ? whenBank(go_) : go_(); return true;
 }
 const previewLink = id => `<a class="qlink" href="#q=${encodeURIComponent(id)}" target="_blank" rel="noopener" title="Open this question as the kid sees it (new tab)">Open ↗</a>`;
 // ---------- keyboard during a math test: only 0-9 and Backspace (plus ':' on time questions) ----------
@@ -971,7 +1036,7 @@ function row({q,a,i,s}){
   const pics = q.answer_type==='choice_picture' ? `<div class="opts ${q.options.length===3?'three':'four'}">${q.options.map(o=>`<div class="opt" style="cursor:default;${o.id===q.correct_answer?'border-color:#1E9E62':''}">${V(o.visual_type,o.params,true)}<span class="letter">${o.id}</span></div>`).join('')}</div>` : '';
   return `<div class="row ${s==='ok'?'':s==='wrong'?'wrong':'skipped'}">
     <div class="row-head"><span class="mark ${cls}">${i+1}. ${label}</span><span class="meta"><span class="tag">${esc(q.topic)} · ${esc(q.subtopic)}</span>${q.is_stretch?'<span class="tag stretch">Stretch</span>':''}<span class="tag lv${q.difficulty}">Level ${q.difficulty}</span><span class="tag">${esc(q.q_id)}</span></span></div>
-    <div class="row-q">${esc(q.question)}</div>${visualOf(q,true)}${pics}
+    ${storyMini(q)}<div class="row-q">${esc(q.question)}</div>${visualOf(q,true)}${pics}
     <div class="ans"><div class="${cls}"><b>Answer given</b>${esc(s==='skipped'?'Skipped':showAnswer(q,a))}</div><div><b>Correct answer</b>${esc(correctDisplay(q))}</div></div>
     ${s!=='ok' && q.wrong_answer_notes ? `<div class="note"><b>${s==='skipped'?'What this checks':'Common mistakes'}:</b> ${esc(q.wrong_answer_notes)}</div>`:''}
   </div>`;
