@@ -1,5 +1,35 @@
 let BANK = [];
 const app = document.getElementById('app'), prog = document.getElementById('progress');
+// The home page never waits for the question bank: it shows straight away and the bank loads in the background.
+let BANK_READY = BANK.length > 0, BANK_ERR = null, bankWaiters = [];
+const COUNT_KEY = 'prepme-counts-v1';
+let COUNT_HINT = { bronze:[55,59,71,58,56], silver:[55,59,71,58,56], gold:[55,59,71,58,56] };   // questions per grade; replaced by the real counts once the bank arrives
+try { const c = JSON.parse(localStorage.getItem(COUNT_KEY) || 'null'); if (c && c.silver) COUNT_HINT = c; } catch (e) {}
+function gradeCount(g, m){ return BANK_READY ? medalSubs(g, m).length : ((COUNT_HINT[m] || COUNT_HINT.silver)[g-1] ?? ''); }
+(function(){ const st = document.createElement('style'); st.textContent =
+  '.loadwait{text-align:center;padding:48px 12px;color:#5D6B85}.loadwait .spin{width:54px;height:54px;margin:0 auto 18px;border:6px solid #D6E4F7;border-top-color:#2F6FD6;border-radius:50%;animation:pmspin .9s linear infinite}' +
+  '.loadwait h2{margin:0 0 8px;color:#1B2A4A}@keyframes pmspin{to{transform:rotate(360deg)}}@media (prefers-reduced-motion:reduce){.loadwait .spin{animation-duration:2.5s}}';
+  document.head.appendChild(st); })();
+// Run fn once the bank is loaded. Until then show a waiting screen; after 5 seconds it turns into a clear spinner.
+function whenBank(fn){
+  if (BANK_READY) return fn();
+  bankWaiters = [fn]; prog.hidden = true;
+  app.innerHTML = `<div class="loadwait" role="status" aria-live="polite"><p id="lw">Getting your questions ready…</p></div>`;
+  if (BANK_ERR) return showBankError();
+  clearTimeout(whenBank.t);
+  whenBank.t = setTimeout(() => { const w = app.querySelector('.loadwait'); if (!w || BANK_READY) return;
+    w.innerHTML = `<div class="spin" aria-hidden="true"></div><h2>Loading the questions…</h2><p>This can take a little longer on a slow connection. Please keep this page open.</p>`; }, 5000);
+}
+function showBankError(){
+  app.innerHTML = `<div class="loadwait" role="alert"><h2>Couldn't load the questions</h2><p>Please check the internet connection and try again.</p><p><button class="btn btn-primary" id="retry">Try again</button></p></div>`;
+  document.getElementById('retry').onclick = () => location.reload();
+}
+function bankArrived(){
+  BANK_READY = true; clearTimeout(whenBank.t);
+  try { const c = {}; Object.keys(MEDALS).forEach(m => c[m] = [1,2,3,4,5].map(g => medalSubs(g, m).length)); localStorage.setItem(COUNT_KEY, JSON.stringify(c)); } catch (e) {}
+  document.querySelectorAll('.gbtn[data-g] small[data-count]').forEach(el => { el.textContent = `${medalSubs(+el.dataset.count, medal).length} questions`; });
+  const w = bankWaiters; bankWaiters = []; w.forEach(f => f());
+}
 let test = [], idx = 0, answers = [], reached = 0, exitedAt = null, cur = null, onlyMissed = false, grade = 1, kidName = '';
 const esc = s => String(s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 const shuffle = a => { a = a.slice(); for (let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]];} return a; };
@@ -485,12 +515,12 @@ const visualOf = (q, small) => q.visual_type && q.visual_type !== 'none' && q.vi
 // ---------- screens ----------
 function showWelcome(){
   prog.hidden = true; adminMode = false; app.classList.remove('wide');
-  const counts = [1,2,3,4,5].map(g => medalSubs(g, medal).length);
+  const counts = [1,2,3,4,5].map(g => gradeCount(g, medal));
   app.innerHTML = `<div style="font-size:60px;line-height:1" aria-hidden="true">🧮</div>
     <h1>Hi there! Ready for your math challenge?</h1>
     <div class="field"><label for="kid">What's your name?</label><input id="kid" class="namebox" maxlength="20" autocomplete="off" placeholder="Type your name" value="${esc(kidName)}"></div>
     <div class="field"><span class="label" id="glabel">Which grade are you in?</span>
-      <div class="grades" role="radiogroup" aria-labelledby="glabel">${[1,2,3,4,5].map(g=>`<button class="gbtn" role="radio" aria-checked="${g===grade}" data-g="${g}">Grade ${g}<small>${counts[g-1]} questions</small></button>`).join('')}</div></div>
+      <div class="grades" role="radiogroup" aria-labelledby="glabel">${[1,2,3,4,5].map(g=>`<button class="gbtn" role="radio" aria-checked="${g===grade}" data-g="${g}">Grade ${g}<small data-count="${g}">${counts[g-1]} questions</small></button>`).join('')}</div></div>
     <div class="field"><span class="label" id="mlabel">Pick your level</span>
       <div class="grades medals" role="radiogroup" aria-labelledby="mlabel">${Object.entries(MEDALS).map(([k,M])=>`<button class="gbtn mbtn" role="radio" aria-checked="${k===medal}" data-m="${k}"><span aria-hidden="true" style="font-size:30px;line-height:1">${M.icon}</span>${M.name}<small>${M.blurb} · ${medalSubs(grade,k).length} questions</small></button>`).join('')}</div></div>
     <label class="dc-toggle"><input type="checkbox" id="dcheck" ${doubleCheck?'checked':''}><span><b>Double-check my answers</b><small>Before each Next, you'll get a reminder to check your answer one more time.</small></span></label>
@@ -502,8 +532,8 @@ function showWelcome(){
   app.querySelectorAll('.mbtn').forEach(b => b.onclick = () => { medal = b.dataset.m; app.querySelectorAll('.mbtn').forEach(x => x.setAttribute('aria-checked', String(x === b))); });
   const kid = document.getElementById('kid'); kid.oninput = () => { kidName = kid.value.trim(); };
   document.getElementById('dcheck').onchange = e => { doubleCheck = e.target.checked; };
-  document.getElementById('start').onclick = () => { kidName = kid.value.trim(); adminMode = false; begin(pickTest()); };
-  document.getElementById('toAdmin').onclick = e => { e.preventDefault(); showAdmin(); };
+  document.getElementById('start').onclick = () => { kidName = kid.value.trim(); adminMode = false; whenBank(() => begin(pickTest())); };
+  document.getElementById('toAdmin').onclick = e => { e.preventDefault(); whenBank(showAdmin); };
   saveState('welcome');
 }
 // ---------- Admin page: same screen, plus optional Category and Subcategory ----------
@@ -821,11 +851,11 @@ function wire(q){
 function route(){
   const m = location.hash.match(/^#q=([\w-]+)/);
   if (m) {
-    const q = BANK.find(x => x.q_id === decodeURIComponent(m[1]));
-    if (q) { previewId = q.q_id; adminMode = true; grade = q.grade; kidName = ''; begin([q]); return; }
+    return whenBank(() => { const q = BANK.find(x => x.q_id === decodeURIComponent(m[1]));
+      if (q) { previewId = q.q_id; adminMode = true; grade = q.grade; kidName = ''; begin([q]); } else showWelcome(); });
   }
   if (restoreState()) return;
-  location.hash === '#admin' ? showAdmin() : showWelcome();
+  location.hash === '#admin' ? whenBank(showAdmin) : showWelcome();
 }
 let previewId = null;
 // ---------- stay on the same page after a refresh (this browser tab only; closing the tab starts fresh) ----------
@@ -837,7 +867,7 @@ function saveState(screen){
     sessionStorage.setItem(SKEY, JSON.stringify({ screen, grade, medal, kidName, doubleCheck, adminMode, adminTab, adminTopic, adminSub, adminLevel,
       cmpGrades, cmpLevel, cmpTopic, cmpStrand, cmpFlagged, onlyMissed, idx, reached, exitedAt,
       answers: withTest ? answers.map(a => a === undefined ? { u: 1 } : a) : [],
-      test: withTest ? test.map(q => ({ id: q.q_id, o: q.options })) : null }));
+      test: withTest ? test.map(q => ({ id: q.q_id, o: q.options, q })) : null }));   // the test's own questions are kept, so a refresh resumes without waiting for the bank
   } catch (e) { /* storage blocked: refresh just goes back to the start page */ }
 }
 function restoreState(){
@@ -848,14 +878,14 @@ function restoreState(){
   if (!MEDALS[medal]) medal = 'silver';
   if (s.test) {
     const byId = new Map(BANK.map(q => [q.q_id, q]));
-    const t = s.test.map(x => { const q = byId.get(x.id); return q && { ...q, options: x.o != null ? x.o : q.options }; });
+    const t = s.test.map(x => { const q = byId.get(x.id) || x.q; return q && { ...q, options: x.o != null ? x.o : q.options }; });
     if (!t.length || t.some(x => !x)) { showWelcome(); return true; }     // the bank changed since: start fresh
     test = t; idx = Math.min(s.idx || 0, t.length - 1); reached = s.reached || 0; exitedAt = s.exitedAt;
     answers = s.answers.map(a => a && typeof a === 'object' && a.u ? undefined : a);
   }
   const go_ = { test: showQuestion, results: showResults, review: showReview, compare: () => { adminTab = 'grades'; showCompare(); }, admin: showAdmin, welcome: showWelcome }[s.screen];
   if (!go_ || ((s.screen === 'test' || s.screen === 'results') && !s.test)) { showWelcome(); return true; }
-  go_(); return true;
+  ['review','compare','admin'].includes(s.screen) ? whenBank(go_) : go_(); return true;
 }
 const previewLink = id => `<a class="qlink" href="#q=${encodeURIComponent(id)}" target="_blank" rel="noopener" title="Open this question as the kid sees it (new tab)">Open ↗</a>`;
 // ---------- keyboard during a math test: only 0-9 and Backspace (plus ':' on time questions) ----------
@@ -896,7 +926,7 @@ function showResults(){
     <div class="toolbar"><strong>Every question</strong><button class="btn btn-soft no-print" id="filter" style="min-height:48px;padding:10px 18px;font-size:17px">${onlyMissed?'Show all':'Show only missed & skipped'}</button></div>
     <div class="list">${rows.map(x=>row(x)).join('') || '<p class="muted">Nothing missed or skipped.</p>'}</div>
     <div class="no-print"><button class="btn btn-primary" id="again">Take a new test</button></div>`;
-  document.getElementById('again').onclick = () => { onlyMissed = false; adminMode ? showAdmin() : showWelcome(); };
+  document.getElementById('again').onclick = () => { onlyMissed = false; adminMode ? whenBank(showAdmin) : showWelcome(); };
   document.getElementById('filter').onclick = () => { onlyMissed = !onlyMissed; showResults(); };
   document.getElementById('pdf').onclick = () => downloadPdf();
   window.scrollTo(0,0);
@@ -952,17 +982,18 @@ async function loadBank(){
   const { url, key } = window.PREPME_CFG || {};
   if (!url || !key) throw new Error('Supabase settings are missing (NEXT_PUBLIC_SUPABASE_URL / NEXT_PUBLIC_SUPABASE_ANON_KEY).');
   const H = { apikey: key, Authorization: `Bearer ${key}` };
-  const get = async path => { const r = await fetch(`${url}/rest/v1/${path}`, { headers: H }); if (!r.ok) throw new Error(`Supabase ${r.status}`); return r.json(); };
-  const subs = await get('subcategories?select=skill_id,sort_order');
+  const once = async path => { const c = new AbortController(), t = setTimeout(() => c.abort(), 25000);
+    try { const r = await fetch(`${url}/rest/v1/${path}`, { headers: H, signal: c.signal }); if (!r.ok) throw new Error(`Supabase ${r.status}`); return await r.json(); } finally { clearTimeout(t); } };
+  const get = path => once(path).catch(() => once(path));            // one retry per request
+  const page = off => get(`questions?select=*&status=neq.rejected&order=q_id&offset=${off}&limit=1000`);
+  // all pages are asked for at the same time instead of one after another
+  const [subs, ...pages] = await Promise.all([get('subcategories?select=skill_id,sort_order'), ...[0,1,2,3,4,5].map(k => page(k * 1000))]);
+  let rows = pages.flat();
+  for (let off = 6000; pages[pages.length - 1].length === 1000; off += 1000) { const pg = await page(off); pages.push(pg); rows = rows.concat(pg); }
   const order = Object.fromEntries(subs.map(s => [s.skill_id, s.sort_order]));
-  let rows = [];
-  for (let off = 0; ; off += 1000) {
-    const page = await get(`questions?select=*&status=neq.rejected&order=q_id&offset=${off}&limit=1000`);
-    rows = rows.concat(page); if (page.length < 1000) break;
-  }
   rows.sort((a, b) => (order[a.skill_id] ?? 9999) - (order[b.skill_id] ?? 9999) || a.q_id.localeCompare(b.q_id));
   return rows;
 }
-app.innerHTML = '<p style="text-align:center;padding:40px 0;color:#5D6B85">Loading questions…</p>';
-loadBank().then(rows => { BANK = rows; route(); })
-  .catch(e => { app.innerHTML = `<p style="text-align:center;padding:40px 0">Couldn't load the questions. ${esc(e.message)}</p><p style="text-align:center"><button class="btn" onclick="location.reload()">Try again</button></p>`; });
+loadBank().then(rows => { BANK = rows; bankArrived(); })
+  .catch(e => { BANK_ERR = e; console.error(e); if (bankWaiters.length) showBankError(); });
+route();
