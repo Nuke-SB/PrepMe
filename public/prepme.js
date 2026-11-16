@@ -2,8 +2,8 @@ let BANK = [];
 const app = document.getElementById('app'), prog = document.getElementById('progress');
 // The home page never waits for the question bank: it shows straight away and the bank loads in the background.
 let BANK_READY = BANK.length > 0, BANK_ERR = null, bankWaiters = [];
-const COUNT_KEY = 'prepme-counts-v2';
-const _H = ['55 questions','59 questions','71 questions','58 questions','56 questions + 4 stories'];
+const COUNT_KEY = 'prepme-counts-v3';
+const _H = ['55 questions','59 questions','71 questions','58 questions','68 questions + 4 stories'];
 let COUNT_HINT = { bronze:_H, silver:_H, gold:_H };   // questions per grade; replaced by the real counts once the bank arrives
 try { const c = JSON.parse(localStorage.getItem(COUNT_KEY) || 'null'); if (c && c.silver) COUNT_HINT = c; } catch (e) {}
 function gradeCount(g, m){ if (!BANK_READY) return ((COUNT_HINT[m] || COUNT_HINT.silver)[g-1] ?? ''); const t = testSize(g, m); return `${t.plain} questions` + (t.stories ? ` + ${t.stories} stories` : ''); }
@@ -12,7 +12,7 @@ function gradeCount(g, m){ if (!BANK_READY) return ((COUNT_HINT[m] || COUNT_HINT
   '.loadwait h2{margin:0 0 8px;color:#1B2A4A}' +
   '.choose{display:grid;gap:16px;margin:16px 0}.ch-card{border:2px solid #D6E4F7;border-radius:18px;padding:18px 20px;text-align:left}.ch-card h2{margin:0 0 6px}.ch-card p{margin:0 0 12px}' +
   '.ch-list{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:8px;margin-bottom:8px}.ch-item{display:flex;flex-wrap:wrap;align-items:center;gap:8px;padding:10px 12px;border:1.5px solid #D6E4F7;border-radius:12px;cursor:pointer}' +
-  '.ch-item input{width:22px;height:22px}.ch-item small{width:100%;color:#5D6B85;padding-left:30px}.ch-acts{display:flex;gap:18px;margin:4px 0 12px}' +
+  '.ch-item input{width:22px;height:22px;flex:none}.ch-item span{flex:1;min-width:0}.ch-h{margin:14px 0 8px;font-size:18px}.ch-item small{width:100%;color:#5D6B85;padding-left:30px}.ch-acts{display:flex;gap:18px;margin:4px 0 12px}' +
   '.story{background:#FFF7E6;border:2px solid #F5D9A6;border-radius:16px;padding:14px 18px;margin:8px 0 14px;text-align:left}.story-h{font-weight:800;color:#9A5B00;font-size:15px;margin-bottom:6px}.story p{margin:0;font-size:clamp(18px,2.6vw,21px);line-height:1.5}' +
   '.story-mini{background:#FFF7E6;border-radius:12px;padding:8px 12px;margin:6px 0;font-size:15px}.story-mini summary{cursor:pointer;font-weight:800;color:#9A5B00}@keyframes pmspin{to{transform:rotate(360deg)}}@media (prefers-reduced-motion:reduce){.loadwait .spin{animation-duration:2.5s}}';
   document.head.appendChild(st); })();
@@ -75,9 +75,13 @@ function storiesFor(g, lv){                                     // [[part1, part
     const k = q.params.story_id; if (!m.has(k)) m.set(k, []); m.get(k).push(q); });
   return [...m.values()].map(l => l.sort((a, b) => a.params.part - b.params.part));
 }
-function pickStories(g, m){                                     // different story settings, one of each, in random order
+function pickStories(g, m){                                     // different settings; at least one fractions story and one decimals or measurement story
   const byTitle = new Map(); shuffle(storiesFor(g, STORY_LV[m])).forEach(st => { const t = st[0].params.title; if (!byTitle.has(t)) byTitle.set(t, st); });
-  return shuffle([...byTitle.values()]).slice(0, STORY_N);
+  const pool = [...byTitle.values()], kind = st => st[0].params.kind || 'whole', out = [];
+  const take = ok => { const i = pool.findIndex(ok); if (i >= 0) out.push(...pool.splice(i, 1)); };
+  take(st => kind(st) === 'fraction'); take(st => kind(st) === 'decimal' || kind(st) === 'measurement');
+  while (out.length < STORY_N && pool.length) out.push(pool.shift());
+  return shuffle(out);
 }
 const plainSubs = (g, m) => medalSubs(g, m).filter(list => !isStory(list[0]));
 function pickTest(m = medal){
@@ -89,7 +93,8 @@ function practiceLevel(list, m){ const M = MEDALS[m], lv = STORY_LV[m]; for (con
 function sectionsFor(g, m){                                     // [{topic, qs}] in bank order
   const out = new Map();
   plainSubs(g, m).forEach(list => { const l = practiceLevel(list, m), qs = list.filter(q => q.difficulty === l && (MEDALS[m].stretch || !q.is_stretch));
-    const t = list[0].topic; if (!out.has(t)) out.set(t, { topic: t, qs: [], stories: 0 }); out.get(t).qs.push(...shuffle(qs)); });
+    const t = list[0].topic === 'Word Problems' ? `Word problems: ${list[0].subtopic}` : list[0].topic;   // word problems are picked kind by kind
+    if (!out.has(t)) out.set(t, { topic: t, qs: [], stories: 0 }); out.get(t).qs.push(...shuffle(qs)); });
   const st = storiesFor(g, STORY_LV[m]);
   if (st.length) out.set('Story Problems', { topic: 'Story Problems', qs: shuffle(st).flat(), stories: st.length });
   return [...out.values()];
@@ -569,6 +574,7 @@ function showWelcome(){
 }
 // ---------- after "Let's start!": the whole test, or practice chosen sections ----------
 let pickSecs = [];
+const isWordSec = s => s.topic === 'Story Problems' || s.topic.startsWith('Word problems: ');
 function showChoose(){
   prog.hidden = true; app.classList.remove('wide'); adminMode = false;
   const secs = sectionsFor(grade, medal), t = testSize(grade, medal), M = MEDALS[medal];
@@ -582,7 +588,8 @@ function showChoose(){
         <button class="btn btn-primary" id="whole">Start the whole test</button></section>
       <section class="ch-card"><h2>🎯 Practice sections</h2>
         <p>Pick one or more sections. You'll get every ${M.name} question in them.</p>
-        <div class="ch-list" role="group" aria-label="Sections">${secs.map(s => `<label class="cmp-chk ch-item"><input type="checkbox" data-t="${esc(s.topic)}" ${pickSecs.includes(s.topic) ? 'checked' : ''}><span>${esc(s.topic === 'Story Problems' ? '📖 Story problems' : s.topic)}</span><small>${s.stories ? `${s.stories} stories · ` : ''}${s.qs.length} questions</small></label>`).join('')}</div>
+        ${[['Topics', secs.filter(s => !isWordSec(s))], ['✏️ Word problems', secs.filter(isWordSec)]].filter(([, l]) => l.length).map(([h, l], k, all) => `${all.length > 1 ? `<h3 class="ch-h">${h}</h3>` : ''}
+        <div class="ch-list" role="group" aria-label="${esc(h)}">${l.map(s => `<label class="cmp-chk ch-item"><input type="checkbox" data-t="${esc(s.topic)}" ${pickSecs.includes(s.topic) ? 'checked' : ''}><span>${esc(s.topic === 'Story Problems' ? '📖 Story problems (one story, several questions)' : s.topic.replace(/^Word problems: /, ''))}</span><small>${s.stories ? `${s.stories} stories · ` : ''}${s.qs.length} questions</small></label>`).join('')}</div>`).join('')}
         <div class="ch-acts"><button class="link" id="all">Select all</button><button class="link" id="none">Clear</button></div>
         <button class="btn btn-primary" id="practice" ${n() ? '' : 'disabled'}>${n() ? `Practice ${n()} questions` : 'Pick a section first'}</button></section>
     </div>
@@ -665,6 +672,7 @@ const STRANDS = [
  ['Algebra','Expressions & equations',['G5-AL-01','G5-AL-03','G5-AL-04']],
  ['Algebra','Patterns & rules',['G5-AL-05']],
  ['Word problems','Story problems (one story, several questions)',['G5-PS-01']],
+ ['Word problems','Word problems by kind',['G5-WP-01','G5-WP-02','G5-WP-03','G5-WP-04','G5-WP-05','G5-WP-06','G5-WP-07','G5-WP-08','G5-WP-09','G5-WP-10','G5-WP-11','G5-WP-12']],
 ];
 
 let adminTab = 'levels', cmpGrades = [3,4,5], cmpLevel = '2', cmpTopic = '', cmpStrand = '', cmpFlagged = false, cmpOpen = new Set();
